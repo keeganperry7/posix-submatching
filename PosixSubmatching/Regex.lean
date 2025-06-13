@@ -24,19 +24,14 @@ def nullable : Regex α → Bool
   | star _ => true
   | group _ _ r => r.nullable
 
-def markEmpty : (r : Regex α) → r.nullable → Regex α
-  | epsilon, _ => epsilon
-  | plus r₁ r₂, hr =>
-    if hr₁ : r₁.nullable
-      then plus (markEmpty r₁ hr₁) r₂
-      else by
-        simp at hr
-        exact plus r₁ (markEmpty r₂ (Or.resolve_left hr hr₁))
-  | mul r₁ r₂, hr => by
-    simp at hr
-    exact mul (markEmpty r₁ hr.left) (markEmpty r₂ hr.right)
-  | star r, _ => star r
-  | group n s r, hr => group n s (markEmpty r hr)
+def markEmpty : Regex α → Regex α
+  | emptyset => emptyset
+  | char _ => emptyset
+  | epsilon => epsilon
+  | plus r₁ r₂ => plus r₁.markEmpty r₂.markEmpty
+  | mul r₁ r₂ => mul r₁.markEmpty r₂.markEmpty
+  | star r => star r.markEmpty
+  | group n s r => group n s r.markEmpty
 
 variable [DecidableEq α]
 
@@ -48,7 +43,7 @@ def deriv : Regex α → α → Regex α
   | plus r₁ r₂, c => (r₁.deriv c).plus (r₂.deriv c)
   | mul r₁ r₂, c =>
     if r₁.nullable
-      then ((r₁.deriv c).mul r₂).plus (r₁.mul (r₂.deriv c))
+      then ((r₁.deriv c).mul r₂).plus (r₁.markEmpty.mul (r₂.deriv c))
       else (r₁.deriv c).mul r₂
   | star r, c => (r.deriv c).mul r.star
   | group n s r, c => group n (c :: s) (r.deriv c)

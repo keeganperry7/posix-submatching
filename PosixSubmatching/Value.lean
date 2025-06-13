@@ -107,7 +107,60 @@ theorem inhab_group {v : Value α} {n : String} {s : List α} {r : Regex α} :
   cases h with
   | group h => exact h
 
-theorem Inhab_not_nullable {r : Regex α} {v : Value α} (hn : ¬r.nullable) (hv : v.flat = []) :
+theorem inhab_markEmpty {v : Value α} {r : Regex α} :
+  Inhab v r.markEmpty → Inhab v r := by
+  intro h
+  match r with
+  | epsilon => exact h
+  | plus r₁ r₂ =>
+    cases h with
+    | left h =>
+      exact Inhab.left (inhab_markEmpty h)
+    | right h =>
+      exact Inhab.right (inhab_markEmpty h)
+  | mul r₁ r₂  =>
+    cases h with
+    | seq h₁ h₂ =>
+      exact Inhab.seq (inhab_markEmpty h₁) (inhab_markEmpty h₂)
+  | star r =>
+    cases h with
+    | star_nil => exact Inhab.star_nil
+    | stars hv hvs =>
+      exact Inhab.stars (inhab_markEmpty hv) (inhab_markEmpty hvs)
+  | group n s r =>
+    cases h with
+    | group h => exact Inhab.group (inhab_markEmpty h)
+
+theorem inhab_markEmpty_flat {v : Value α} {r : Regex α} (hv : Inhab v r.markEmpty) :
+  v.flat = [] := by
+  match r with
+  | epsilon =>
+    cases hv
+    rw [flat]
+  | plus r₁ r₂ =>
+    cases hv with
+    | left hv =>
+      rw [flat, inhab_markEmpty_flat hv]
+    | right hv =>
+      rw [flat, inhab_markEmpty_flat hv]
+  | mul r₁ r₂ =>
+    cases hv with
+    | seq hv₁ hv₂ =>
+      rw [flat, inhab_markEmpty_flat hv₁, inhab_markEmpty_flat hv₂]
+      rfl
+  | star r =>
+    cases hv with
+    | star_nil => rw [flat]
+    | stars hv hvs =>
+      rw [←markEmpty] at hvs
+      rw [flat, inhab_markEmpty_flat hv, inhab_markEmpty_flat hvs]
+      rfl
+  | group n s r =>
+    cases hv with
+    | group hv =>
+      exact inhab_markEmpty_flat hv
+
+theorem  Inhab_not_nullable {r : Regex α} {v : Value α} (hn : ¬r.nullable) (hv : v.flat = []) :
   ¬Inhab v r := by
   intro h
   induction r generalizing v with
@@ -171,6 +224,29 @@ def Regex.mkeps (r : Regex α) (hn : r.nullable) : (Σ' v : Value α, Inhab v r)
     have ⟨v, h⟩ := mkeps r hn
     ⟨v, Inhab.group h⟩
 
+theorem mkeps_flat {α : Type u} {r : Regex α} (hn : r.nullable) :
+  (r.mkeps hn).fst.flat = [] := by
+  induction r with
+  | emptyset => simp at hn
+  | epsilon =>
+    simp only [mkeps, Value.flat]
+  | char c => simp at hn
+  | plus r₁ r₂ ih₁ ih₂ =>
+    simp at hn
+    simp [mkeps]
+    split_ifs with hn'
+    · rw [Value.flat, ih₁]
+    · rw [Value.flat, ih₂]
+  | mul r₁ r₂ ih₁ ih₂ =>
+    simp at hn
+    simp [mkeps]
+    rw [ih₁, ih₂, and_self]
+  | star r ih => simp [mkeps]
+  | group n s r ih =>
+    simp at hn
+    simp [mkeps]
+    exact ih hn
+
 variable [DecidableEq α]
 
 def inj : (r : Regex α) → (c : α) → (Σ' v : Value α, Inhab v (r.deriv c)) → (Σ' v : Value α, Inhab v r)
@@ -190,7 +266,8 @@ def inj : (r : Regex α) → (c : α) → (Σ' v : Value α, Inhab v (r.deriv c)
         exact ⟨v₁.seq v₂, h₁.seq (inhab_seq_snd (inhab_left h))⟩
       | Value.right (Value.seq v₁ v₂) =>
         have ⟨v₂, h₂⟩ := inj r₂ c ⟨v₂, inhab_seq_snd (inhab_right h)⟩
-        exact ⟨v₁.seq v₂, (inhab_seq_fst (inhab_right h)).seq h₂⟩
+        have h₁ := inhab_markEmpty (inhab_seq_fst (inhab_right h))
+        exact ⟨v₁.seq v₂, h₁.seq h₂⟩
     · match v with
       | Value.seq v₁ v₂ =>
         have ⟨v₁, h₁⟩ := inj r₁ c ⟨v₁, inhab_seq_fst h⟩
@@ -201,6 +278,45 @@ def inj : (r : Regex α) → (c : α) → (Σ' v : Value α, Inhab v (r.deriv c)
   | .group n s r, c, ⟨v, h⟩ =>
     have ⟨v, h⟩ := inj r c ⟨v, inhab_group h⟩
     ⟨v, Inhab.group h⟩
+
+theorem inj_flat {r : Regex α} {c : α} {v : Value α} (hv : Inhab v (r.deriv c)) :
+  (inj r c ⟨v, hv⟩).fst.flat = c::v.flat := by
+  induction r generalizing v with
+  | emptyset => nomatch hv
+  | epsilon => nomatch hv
+  | char d =>
+    rw [deriv] at hv
+    split_ifs at hv with hc
+    · cases hv
+      simp [inj, hc]
+    · nomatch hv
+  | plus r₁ r₂ ih₁ ih₂ =>
+    cases hv with
+    | left hv =>
+      simp [inj, ih₁]
+    | right hv =>
+      simp [inj, ih₂]
+  | mul r₁ r₂ ih₁ ih₂ =>
+    rw [deriv] at hv
+    split_ifs at hv with hn
+    · match v with
+      | Value.left (Value.seq v₁ v₂) =>
+        simp [inj, hn, ih₁]
+      | Value.right (Value.seq v₁ v₂) =>
+        simp [inj, hn, ih₂]
+        match hv with
+        | Inhab.right (Inhab.seq hv₁ _) =>
+          rw [inhab_markEmpty_flat hv₁]
+          rfl
+    · match v with
+      | Value.seq v₁ v₂ =>
+        simp [inj, hn, ih₁]
+  | star r ih =>
+    match v with
+    | Value.seq v (Value.stars vs) =>
+      simp [inj, ih]
+  | group n s r ih =>
+    simp [inj, ih]
 
 def injs : (r : Regex α) → (s : List α) → (Σ' v : Value α, Inhab v (r.derivs s)) → (Σ' v' : Value α, Inhab v' r)
   | _, [], h => h
@@ -218,7 +334,7 @@ def Regex.extract' : (r : Regex α) → (Σ' v : Value α, Inhab v r) → List (
   | star _, ⟨Value.stars [], _⟩ => []
   | star r, ⟨Value.stars (v::vs), h⟩ =>
     r.extract' ⟨v, inhab_stars_head h⟩ ++ (star r).extract' ⟨Value.stars vs, inhab_stars_tail h⟩
-  | group n _ r, ⟨v, h⟩ => (n, v.flat) :: r.extract' ⟨v, inhab_group h⟩
+  | group n s r, ⟨v, h⟩ => (n, s.reverse ++ v.flat) :: r.extract' ⟨v, inhab_group h⟩
 
 def Regex.captures' : Regex α → List α → List (String × List α)
   | r, s =>
