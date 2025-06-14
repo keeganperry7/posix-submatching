@@ -36,6 +36,40 @@ theorem extract_extract'_nil {r : Regex α} (hn : r.nullable) :
     simp only [and_true]
     exact mkeps_flat hn
 
+theorem extract_markEmpty {r : Regex α} {v : Value α} (hv : Inhab v r.markEmpty) :
+  r.markEmpty.extract' ⟨v, hv⟩ = r.extract' ⟨v, inhab_markEmpty hv⟩ := by
+  match r with
+  | emptyset => nomatch hv
+  | epsilon =>
+    simp [markEmpty]
+  | char c => nomatch hv
+  | plus r₁ r₂ =>
+    cases hv with
+    | left hv =>
+      simp only [markEmpty, extract']
+      rw [extract_markEmpty hv]
+    | right hv =>
+      simp only [markEmpty, extract']
+      rw [extract_markEmpty hv]
+  | mul r₁ r₂ =>
+    cases hv with
+    | seq hv₁ hv₂ =>
+      simp only [markEmpty, extract']
+      rw [extract_markEmpty hv₁, extract_markEmpty hv₂]
+  | star r =>
+    cases hv with
+    | star_nil =>
+      simp only [markEmpty, extract']
+    | stars hv hvs =>
+      simp only [markEmpty, extract']
+      rw [extract_markEmpty hv]
+      rw [←markEmpty] at hvs
+      rw [←extract_markEmpty hvs]
+      rfl
+  | group n s r =>
+    simp only [markEmpty, extract']
+    rw [extract_markEmpty]
+
 variable [DecidableEq α]
 
 theorem extract_deriv (r : Regex α) (x : α) (v : Value α) (hv : Inhab v (r.deriv x)) :
@@ -60,7 +94,30 @@ theorem extract_deriv (r : Regex α) (x : α) (v : Value α) (hv : Inhab v (r.de
     | right hv =>
       simp [extract', inj]
       rw [ih₂]
-  | mul r₁ r₂ ih₁ ih₂ => sorry
+  | mul r₁ r₂ ih₁ ih₂ =>
+    simp only [inj]
+    split_ifs with hn
+    · split
+      · rw [extract', ←ih₁]
+        generalize_proofs
+        generalize hr : (r₁.mul r₂).deriv x = r' at hv
+        simp [deriv, hn] at hr
+        subst hr
+        rw [extract', extract']
+      · rw [extract', ←ih₂]
+        generalize_proofs
+        generalize hr : (r₁.mul r₂).deriv x = r' at hv
+        simp [deriv, hn] at hr
+        subst hr
+        rw [extract', extract']
+        rw [extract_markEmpty]
+    · split
+      rw [extract', ←ih₁]
+      generalize_proofs
+      generalize hr : (r₁.mul r₂).deriv x = r' at hv
+      simp [deriv, hn] at hr
+      subst hr
+      rw [extract']
   | star r ih =>
     match v with
     | Value.seq v (Value.stars vs) =>
