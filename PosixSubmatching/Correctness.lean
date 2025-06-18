@@ -144,3 +144,13 @@ theorem captures_captures' (r : Regex α) (s : List α) :
       simp [captures', hn, injs]
       rw [extract_deriv]
     · simp [captures', hn]
+
+theorem parse_iff_matches (r : Regex α) (s : List α) :
+  (r.parse s).isSome ↔ r.Matches s := by
+  induction s generalizing r with
+  | nil =>
+    simp [parse]
+    exact nullable_iff_matches_nil
+  | cons x xs ih =>
+    rw [Matches_deriv, ←ih]
+    simp [parse]
