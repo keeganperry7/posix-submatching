@@ -38,23 +38,13 @@ theorem POSIX_inhab {r : Regex α} {v : Value α} :
   POSIX r v → Inhab v r := by
   intro h
   induction h with
-  | epsilon => apply Inhab.empty
-  | char c => apply Inhab.char
-  | left h ih =>
-    apply Inhab.left
-    exact ih
-  | right h hn ih =>
-    apply Inhab.right
-    exact ih
-  | mul h₁ h₂ hn ih₁ ih₂ =>
-    apply Inhab.seq
-    exact ih₁
-    exact ih₂
-  | star_nil => apply Inhab.star_nil
-  | stars h₁ h₂ hv hn ih₁ ih₂ =>
-    apply Inhab.stars
-    exact ih₁
-    exact ih₂
+  | epsilon => exact Inhab.empty
+  | char c => exact Inhab.char c
+  | left h ih => exact Inhab.left ih
+  | right h hn ih => exact Inhab.right ih
+  | mul h₁ h₂ hn ih₁ ih₂ => exact Inhab.seq ih₁ ih₂
+  | star_nil => exact Inhab.star_nil
+  | stars h₁ h₂ hv hn ih₁ ih₂ => exact Inhab.stars ih₁ ih₂
   | group h ih => exact Inhab.group ih
 
 theorem mkeps_posix {r : Regex α} (hn : r.nullable) :

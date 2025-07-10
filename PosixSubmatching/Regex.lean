@@ -208,7 +208,7 @@ def deriv : Regex α → α → Regex α
       then ((r₁.deriv c).mul r₂).plus (r₁.markEmpty.mul (r₂.deriv c))
       else (r₁.deriv c).mul r₂
   | star r, c => (r.deriv c).mul r.star
-  | group n s r, c => group n (c :: s) (r.deriv c)
+  | group n s r, c => group n (s ++ [c]) (r.deriv c)
 
 theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
   Matches (c::s) r ↔ Matches s (r.deriv c) := by
@@ -331,7 +331,7 @@ def extract : (r : Regex α) → r.nullable → List (String × List α)
     simp at hr
     exact extract r₁ hr.left ++ extract r₂ hr.right
   | star r, _ => []
-  | group n s r, hr => ⟨n, s.reverse⟩ :: extract r hr
+  | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
 def captures : Regex α → List α → List (String × List α)
   | r, s =>

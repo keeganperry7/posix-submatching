@@ -334,7 +334,7 @@ def Regex.extract' : (r : Regex α) → (Σ' v : Value α, Inhab v r) → List (
   | star _, ⟨Value.stars [], _⟩ => []
   | star r, ⟨Value.stars (v::vs), h⟩ =>
     r.extract' ⟨v, inhab_stars_head h⟩ ++ (star r).extract' ⟨Value.stars vs, inhab_stars_tail h⟩
-  | group n s r, ⟨v, h⟩ => (n, s.reverse ++ v.flat) :: r.extract' ⟨v, inhab_group h⟩
+  | group n s r, ⟨v, h⟩ => (n, s ++ v.flat) :: r.extract' ⟨v, inhab_group h⟩
 
 def Regex.captures' : Regex α → List α → List (String × List α)
   | r, s =>
