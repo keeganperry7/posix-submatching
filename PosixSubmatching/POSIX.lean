@@ -34,18 +34,15 @@ inductive POSIX : Regex α → Value α → Prop
     POSIX r v →
     POSIX (group n s r) v
 
-theorem POSIX_inhab {r : Regex α} {v : Value α} :
-  POSIX r v → Inhab v r := by
-  intro h
-  induction h with
-  | epsilon => exact Inhab.empty
-  | char c => exact Inhab.char c
-  | left h ih => exact Inhab.left ih
-  | right h hn ih => exact Inhab.right ih
-  | mul h₁ h₂ hn ih₁ ih₂ => exact Inhab.seq ih₁ ih₂
-  | star_nil => exact Inhab.star_nil
-  | stars h₁ h₂ hv hn ih₁ ih₂ => exact Inhab.stars ih₁ ih₂
-  | group h ih => exact Inhab.group ih
+theorem POSIX_inhab {r : Regex α} {v : Value α} : POSIX r v → Inhab v r
+  | .epsilon => Inhab.empty
+  | .char c => Inhab.char c
+  | .left h => Inhab.left (POSIX_inhab h)
+  | .right h hn => Inhab.right (POSIX_inhab h)
+  | .mul h₁ h₂ hn => Inhab.seq (POSIX_inhab h₁) (POSIX_inhab h₂)
+  | .star_nil => Inhab.star_nil
+  | .stars h₁ h₂ hv hn => Inhab.stars (POSIX_inhab h₁) (POSIX_inhab h₂)
+  | .group h => Inhab.group (POSIX_inhab h)
 
 theorem mkeps_posix {r : Regex α} (hn : r.nullable) :
   POSIX r (r.mkeps hn).fst := by

@@ -1,5 +1,6 @@
 import PosixSubmatching.Regex
 import Mathlib.Tactic.SplitIfs
+import Mathlib.Data.Bool.Basic
 
 universe u
 
@@ -205,22 +206,20 @@ theorem  Inhab_not_nullable {r : Regex α} {v : Value α} (hn : ¬r.nullable) (h
 def Regex.mkeps (r : Regex α) (hn : r.nullable) : (Σ' v : Value α, Inhab v r) :=
   match r with
   | epsilon => ⟨Value.empty, Inhab.empty⟩
-  | mul r₁ r₂ => by
-    simp [nullable] at hn
-    have ⟨v₁, h₁⟩ := mkeps r₁ hn.left
-    have ⟨v₂, h₂⟩ := mkeps r₂ hn.right
-    exact ⟨Value.seq v₁ v₂, Inhab.seq h₁ h₂⟩
-  | plus r₁ r₂ => by
+  | mul r₁ r₂ =>
+    have ⟨v₁, h₁⟩ := mkeps r₁ (Bool.and_elim_left hn)
+    have ⟨v₂, h₂⟩ := mkeps r₂ (Bool.and_elim_right hn)
+    ⟨Value.seq v₁ v₂, Inhab.seq h₁ h₂⟩
+  | plus r₁ r₂ =>
     if hn₁ : r₁.nullable
       then
         have ⟨v₁, h₁⟩ := mkeps r₁ hn₁
-        exact ⟨Value.left v₁, Inhab.left h₁⟩
+        ⟨Value.left v₁, Inhab.left h₁⟩
       else
-        simp [nullable] at hn
-        have ⟨v₂, h₂⟩ := mkeps r₂ (Or.resolve_left hn hn₁)
-        exact ⟨Value.right v₂, Inhab.right h₂⟩
-  | .star r => ⟨Value.stars [], Inhab.star_nil⟩
-  | group n s r =>
+        have ⟨v₂, h₂⟩ := mkeps r₂ (Or.resolve_left (Bool.or_eq_true _ _ ▸ hn) hn₁)
+        ⟨Value.right v₂, Inhab.right h₂⟩
+  | .star _ => ⟨Value.stars [], Inhab.star_nil⟩
+  | group _ _ r =>
     have ⟨v, h⟩ := mkeps r hn
     ⟨v, Inhab.group h⟩
 
