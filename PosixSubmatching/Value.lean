@@ -203,14 +203,9 @@ theorem  Inhab_not_nullable {r : Regex α} {v : Value α} (hn : ¬r.nullable) (h
     cases h with
     | group h => exact ih hn hv h
 
-def Regex.mkeps (r : Regex α) (hn : r.nullable) : (Σ' v : Value α, Inhab v r) :=
-  match r with
-  | epsilon => ⟨Value.empty, Inhab.empty⟩
-  | mul r₁ r₂ =>
-    have ⟨v₁, h₁⟩ := mkeps r₁ (Bool.and_elim_left hn)
-    have ⟨v₂, h₂⟩ := mkeps r₂ (Bool.and_elim_right hn)
-    ⟨Value.seq v₁ v₂, Inhab.seq h₁ h₂⟩
-  | plus r₁ r₂ =>
+def Regex.mkeps : (r : Regex α) → r.nullable → (Σ' v : Value α, Inhab v r)
+  | epsilon, _ => ⟨Value.empty, Inhab.empty⟩
+  | plus r₁ r₂, hn =>
     if hn₁ : r₁.nullable
       then
         have ⟨v₁, h₁⟩ := mkeps r₁ hn₁
@@ -218,8 +213,12 @@ def Regex.mkeps (r : Regex α) (hn : r.nullable) : (Σ' v : Value α, Inhab v r)
       else
         have ⟨v₂, h₂⟩ := mkeps r₂ (Or.resolve_left (Bool.or_eq_true _ _ ▸ hn) hn₁)
         ⟨Value.right v₂, Inhab.right h₂⟩
-  | .star _ => ⟨Value.stars [], Inhab.star_nil⟩
-  | group _ _ r =>
+  | mul r₁ r₂, hn =>
+    have ⟨v₁, h₁⟩ := mkeps r₁ (Bool.and_elim_left hn)
+    have ⟨v₂, h₂⟩ := mkeps r₂ (Bool.and_elim_right hn)
+    ⟨Value.seq v₁ v₂, Inhab.seq h₁ h₂⟩
+  | star _, _ => ⟨Value.stars [], Inhab.star_nil⟩
+  | group _ _ r, hn =>
     have ⟨v, h⟩ := mkeps r hn
     ⟨v, Inhab.group h⟩
 
