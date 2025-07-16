@@ -347,3 +347,23 @@ def Regex.parse : Regex α → List α → Option (Value α)
     if h : r'.nullable
       then some (injs r s (r'.mkeps h)).fst
       else none
+
+theorem parse_not_matches_iff {r : Regex α} (s : List α) :
+  r.parse s = none ↔ ¬r.Matches s := by
+  induction s generalizing r with
+  | nil =>
+    rw [←nullable_iff_matches_nil]
+    simp [parse]
+  | cons x xs ih =>
+    rw [Matches_deriv, ←ih]
+    simp [parse]
+
+theorem parse_matches_iff {r : Regex α} (s : List α) :
+  (r.parse s).isSome ↔ r.Matches s := by
+  induction s generalizing r with
+  | nil =>
+    rw [←nullable_iff_matches_nil]
+    simp [parse]
+  | cons x xs ih =>
+    rw [Matches_deriv, ←ih]
+    simp [parse]
