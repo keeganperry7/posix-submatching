@@ -44,6 +44,31 @@ theorem POSIX_inhab {r : Regex α} {v : Value α} : POSIX r v → Inhab v r
   | .stars h₁ h₂ hv hn => Inhab.stars (POSIX_inhab h₁) (POSIX_inhab h₂)
   | .group h => Inhab.group (POSIX_inhab h)
 
+theorem POSIX_matches {r : Regex α} {v : Value α} : POSIX r v → r.Matches v.flat
+  | .epsilon => by
+    rw [Value.flat]
+    exact Matches.epsilon
+  | .char c => by
+    rw [Value.flat]
+    exact Matches.char
+  | .left h => by
+    rw [Value.flat]
+    exact Matches.plus_left (POSIX_matches h)
+  | .right h hn => by
+    rw [Value.flat]
+    exact Matches.plus_right (POSIX_matches h)
+  | .mul h₁ h₂ hn => by
+    rw [Value.flat]
+    exact Matches.mul rfl (POSIX_matches h₁) (POSIX_matches h₂)
+  | .star_nil => by
+    rw [Value.flat]
+    exact Matches.star_nil
+  | .stars h₁ h₂ hv hn => by
+    rw [Value.flat]
+    exact Matches.stars hv rfl (POSIX_matches h₁) (POSIX_matches h₂)
+  | .group h => by
+    exact Matches.group (POSIX_matches h)
+
 theorem mkeps_posix {r : Regex α} (hn : r.nullable) :
   POSIX r (r.mkeps hn).fst := by
   induction r with
