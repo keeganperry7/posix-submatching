@@ -46,7 +46,7 @@ theorem extract_nil_posix {α : Type u} {r : Regex α} {Γ : List (String × Lis
         cases h with
         | left h =>
           rw [nullable_iff_matches_nil] at hr₁
-          exact absurd (POSIX_matches h) hr₁
+          exact absurd (POSIX.matches h) hr₁
         | right h hn =>
           rw [←ih₂] at h
           rcases h with ⟨hr₂, h⟩
@@ -181,7 +181,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (String × 
         · cases s₁ with
           | nil =>
             rw [nullable_iff_matches_nil] at hr
-            exact absurd (POSIX_matches h₁) hr
+            exact absurd (POSIX.matches h₁) hr
           | cons x xs =>
             simp at hcs
             cases hcs.left

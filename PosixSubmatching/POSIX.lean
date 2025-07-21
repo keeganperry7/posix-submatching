@@ -1,4 +1,5 @@
 import PosixSubmatching.Regex
+import Mathlib.Tactic.Contrapose
 
 open Regex
 
@@ -33,7 +34,7 @@ inductive POSIX : Regex α → List α → List (String × List α) → Prop
     POSIX r s Γ →
     POSIX (group n cs r) s ((n, cs ++ s) :: Γ)
 
-theorem POSIX_matches {α : Type u} {r : Regex α} {s : List α} {Γ : List (String × List α)} :
+theorem POSIX.matches {α : Type u} {r : Regex α} {s : List α} {Γ : List (String × List α)} :
   POSIX r s Γ → r.Matches s := by
   intro h
   induction h with
@@ -48,10 +49,25 @@ theorem POSIX_matches {α : Type u} {r : Regex α} {s : List α} {Γ : List (Str
     exact Matches.stars hv rfl ih₁ ih₂
   | group h ih => exact Matches.group ih
 
+theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : List (String × List α)} :
+  POSIX r s Γ → Submatches s r Γ := by
+  intro h
+  induction h with
+  | epsilon => exact Submatches.epsilon
+  | char c => exact Submatches.char
+  | left h ih => exact Submatches.left ih
+  | right h hn ih => exact Submatches.right ih
+  | mul h₁ h₂ hn ih₁ ih₂ =>
+    exact Submatches.mul ih₁ ih₂
+  | star_nil => exact Submatches.star_nil
+  | stars h₁ h₂ hv hn ih₁ ih₂ =>
+    exact Submatches.stars ih₁ ih₂
+  | group h ih => exact Submatches.group ih
+
 theorem POSIX_markEmpty {α : Type u} {r : Regex α} {s : List α} {Γ : List (String × List α)} :
   POSIX r.markEmpty s Γ → s = [] := by
   intro h
-  apply POSIX_matches at h
+  apply POSIX.matches at h
   apply markEmpty_matches_nil at h
   exact h
 

@@ -18,6 +18,28 @@ namespace Regex
 
 variable {α : Type u}
 
+inductive Submatches : List α → Regex α → List (String × List α) → Prop
+  | epsilon : Submatches [] epsilon []
+  | char {c : α} : Submatches [c] (char c) []
+  | left {s : List α} {r₁ r₂ : Regex α} {Γ : List (String × List α)} :
+    Submatches s r₁ Γ →
+    Submatches s (r₁.plus r₂) Γ
+  | right {s : List α} {r₁ r₂ : Regex α} {Γ : List (String × List α)} :
+    Submatches s r₂ Γ →
+    Submatches s (r₁.plus r₂) Γ
+  | mul {s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ₁ Γ₂ : List (String × List α)} :
+    Submatches s₁ r₁ Γ₁ →
+    Submatches s₂ r₂ Γ₂ →
+    Submatches (s₁ ++ s₂) (r₁.mul r₂) (Γ₁ ++ Γ₂)
+  | star_nil {r : Regex α} : Submatches [] r.star []
+  | stars {s₁ s₂ : List α} {r : Regex α} {Γ₁ Γ₂ : List (String × List α)} :
+    Submatches s₁ r Γ₁ →
+    Submatches s₂ r.star Γ₂ →
+    Submatches (s₁ ++ s₂) r.star (Γ₁ ++ Γ₂)
+  | group {n : String} {s cs : List α} {r : Regex α} {Γ : List (String × List α)} :
+    Submatches s r Γ →
+    Submatches s (group n cs r) ((n, cs ++ s) :: Γ)
+
 inductive Matches : List α → Regex α → Prop
   | epsilon : Matches [] epsilon
   | char {c : α} : Matches [c] (char c)
