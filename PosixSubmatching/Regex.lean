@@ -218,56 +218,6 @@ theorem markEmpty_matches_nil {r : Regex α} {s : List α} :
     cases h with
     | group h => exact ih h
 
-theorem markEmpty_matches {r : Regex α} :
-  Matches [] r.markEmpty ↔ Matches [] r := by
-  induction r with
-  | emptyset => exact ⟨nofun, nofun⟩
-  | epsilon => rfl
-  | char c => exact ⟨nofun, nofun⟩
-  | plus r₁ r₂ ih₁ ih₂ =>
-    rw [markEmpty]
-    repeat rw [Matches_plus]
-    rw [ih₁, ih₂]
-  | mul r₁ r₂ ih₁ ih₂ =>
-    constructor
-    · intro h
-      cases h with
-      | mul hs h₁ h₂ =>
-        simp at hs
-        cases hs.left
-        cases hs.right
-        rw [ih₁] at h₁
-        rw [ih₂] at h₂
-        exact Matches.mul rfl h₁ h₂
-    · intro h
-      cases h with
-      | mul hs h₁ h₂ =>
-        simp at hs
-        cases hs.left
-        cases hs.right
-        rw [←ih₁] at h₁
-        rw [←ih₂] at h₂
-        exact Matches.mul rfl h₁ h₂
-  | star r ih =>
-    rw [markEmpty]
-    constructor
-    · intro h
-      cases h with
-      | star_nil => exact Matches.star_nil
-      | stars hs₁ hs h₁ h₂ =>
-        simp at hs
-        exact absurd hs.left hs₁
-    · intro h
-      cases h with
-      | star_nil => exact Matches.star_nil
-      | stars hs₁ hs h₁ h₂ =>
-        simp at hs
-        exact absurd hs.left hs₁
-  | group n s r ih =>
-    rw [markEmpty]
-    repeat rw [Matches_group]
-    exact ih
-
 variable [DecidableEq α]
 
 @[simp]

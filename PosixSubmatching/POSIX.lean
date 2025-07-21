@@ -86,7 +86,7 @@ theorem POSIX_nil_markEmpty {α : Type u} {r : Regex α} {Γ : List (String × L
         exact POSIX.left h
       | right h hn =>
         rw [ih₂] at h
-        rw [markEmpty_matches] at hn
+        rw [←nullable_iff_matches_nil, markEmpty_nullable, nullable_iff_matches_nil] at hn
         exact POSIX.right h hn
     · intro h
       cases h with
@@ -95,7 +95,7 @@ theorem POSIX_nil_markEmpty {α : Type u} {r : Regex α} {Γ : List (String × L
         exact POSIX.left h
       | right h hn =>
         rw [←ih₂] at h
-        rw [←markEmpty_matches] at hn
+        rw [←nullable_iff_matches_nil, ←markEmpty_nullable, nullable_iff_matches_nil] at hn
         exact POSIX.right h hn
   | mul r₁ r₂ ih₁ ih₂ =>
     rw [markEmpty]
