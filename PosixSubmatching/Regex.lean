@@ -1,6 +1,6 @@
 import Mathlib.Tactic.SplitIfs
 import Mathlib.Tactic.SimpRw
-import Mathlib.Tactic.ApplyAt
+import Mathlib.Data.Bool.Basic
 
 universe u
 
@@ -347,12 +347,13 @@ def extract : (r : Regex α) → r.nullable → List (String × List α)
   | plus r₁ r₂, hr =>
     if hr₁ : r₁.nullable
       then extract r₁ hr₁
-      else by
-        simp at hr
-        exact extract r₂ (Or.resolve_left hr hr₁)
+      else
+        have hr₂ := Or.resolve_left (Bool.or_eq_true _ _▸ hr) hr₁
+        extract r₂ hr₂
   | mul r₁ r₂, hr => by
-    simp at hr
-    exact extract r₁ hr.left ++ extract r₂ hr.right
+    have hr₁ := Bool.and_elim_left hr
+    have hr₂ := Bool.and_elim_right hr
+    exact extract r₁ hr₁ ++ extract r₂ hr₂
   | star r, _ => []
   | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
