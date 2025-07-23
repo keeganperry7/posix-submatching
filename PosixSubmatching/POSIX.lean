@@ -1,5 +1,4 @@
 import PosixSubmatching.Regex
-import Mathlib.Tactic.Contrapose
 
 open Regex
 
@@ -67,9 +66,7 @@ theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : List (String × List
 theorem POSIX_markEmpty {α : Type u} {r : Regex α} {s : List α} {Γ : List (String × List α)} :
   POSIX r.markEmpty s Γ → s = [] := by
   intro h
-  apply POSIX.matches at h
-  apply markEmpty_matches_nil at h
-  exact h
+  exact markEmpty_matches_nil h.matches
 
 theorem POSIX_nil_markEmpty {α : Type u} {r : Regex α} {Γ : List (String × List α)} :
   POSIX r.markEmpty [] Γ ↔ POSIX r [] Γ := by

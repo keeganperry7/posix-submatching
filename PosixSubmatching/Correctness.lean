@@ -1,6 +1,7 @@
 import PosixSubmatching.Regex
 import PosixSubmatching.POSIX
 import Mathlib.Tactic.GeneralizeProofs
+import Mathlib.Tactic.ApplyAt
 
 universe u
 
