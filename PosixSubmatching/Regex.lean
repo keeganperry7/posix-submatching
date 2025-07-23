@@ -342,6 +342,14 @@ def derivs : Regex α → List α → Regex α
   | r, [] => r
   | r, c::s => (r.deriv c).derivs s
 
+theorem Matches_derivs {r : Regex α} {s : List α} :
+  r.Matches s ↔ (r.derivs s).Matches [] := by
+  induction s generalizing r with
+  | nil => rfl
+  | cons x xs ih =>
+    rw [Matches_deriv, ih]
+    rfl
+
 def extract : (r : Regex α) → r.nullable → List (String × List α)
   | epsilon, _ => []
   | plus r₁ r₂, hr =>

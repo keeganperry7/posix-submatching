@@ -266,22 +266,20 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (String × 
         rw [←ih] at h
         exact POSIX.group h
 
+theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (String × List α)} :
+  POSIX r s Γ ↔ POSIX (r.derivs s) [] Γ := by
+  induction s generalizing r with
+  | nil => rfl
+  | cons x xs ih =>
+    rw [posix_deriv, ih]
+    rfl
+
 theorem captures_posix (r : Regex α) (s : List α) (Γ : List (String × List α)) :
   r.captures s = some Γ ↔ POSIX r s Γ := by
-  induction s generalizing r with
-  | nil =>
-    simp [captures]
-    exact extract_nil_posix
-  | cons x xs ih =>
-    rw [posix_deriv, ←ih]
-    simp [captures]
+  simp [captures]
+  rw [posix_derivs, extract_nil_posix]
 
 theorem captures_iff_matches (r : Regex α) (s : List α) :
   (r.captures s).isSome ↔ r.Matches s := by
-  induction s generalizing r with
-  | nil =>
-    simp [captures]
-    exact nullable_iff_matches_nil
-  | cons x xs ih =>
-    rw [Matches_deriv, ←ih]
-    simp [captures]
+  simp [captures]
+  rw [Matches_derivs, nullable_iff_matches_nil]
