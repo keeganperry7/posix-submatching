@@ -9,7 +9,7 @@ variable {α : Type u}
 
 open Regex
 
-theorem extract_nil_posix {α : Type u} {r : Regex α} {Γ : List (String × List α)} :
+theorem extract_nil_posix {r : Regex α} {Γ : List (String × List α)} :
   (∃ hr : r.nullable, r.extract hr = Γ) ↔ POSIX r [] Γ := by
   induction r generalizing Γ with
   | emptyset => exact ⟨nofun, nofun⟩

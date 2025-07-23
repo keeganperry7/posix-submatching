@@ -4,6 +4,8 @@ import Mathlib.Data.Bool.Basic
 
 universe u
 
+variable {α : Type u}
+
 inductive Regex (α :  Type u) : Type u where
   | emptyset : Regex α
   | epsilon : Regex α
@@ -15,8 +17,6 @@ inductive Regex (α :  Type u) : Type u where
   deriving Repr
 
 namespace Regex
-
-variable {α : Type u}
 
 inductive Submatches : List α → Regex α → List (String × List α) → Prop
   | epsilon : Submatches [] epsilon []
