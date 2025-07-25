@@ -236,20 +236,8 @@ def deriv : Regex α → α → Regex α
 theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
   Matches (c::s) r ↔ Matches s (r.deriv c) := by
   induction r generalizing s with
-  | emptyset =>
-    rw [deriv]
-    constructor
-    · intro h
-      nomatch h
-    · intro h
-      nomatch h
-  | epsilon =>
-    rw [deriv]
-    constructor
-    · intro h
-      nomatch h
-    · intro h
-      nomatch h
+  | emptyset => exact ⟨nofun, nofun⟩
+  | epsilon => exact ⟨nofun, nofun⟩
   | char c =>
     rw [Matches_char, deriv]
     rw [List.cons.injEq]
