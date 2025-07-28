@@ -43,7 +43,7 @@ theorem POSIX.matches {r : Regex α} {s : List α} {Γ : List (String × List α
   | right h hn ih => exact Matches.plus_right ih
   | mul h₁ h₂ hn ih₁ ih₂ => exact Matches.mul rfl ih₁ ih₂
   | star_nil => exact Matches.star_nil
-  | stars h₁ h₂ hv hn ih₁ ih₂ => exact Matches.stars hv rfl ih₁ ih₂
+  | stars h₁ h₂ hv hn ih₁ ih₂ => exact Matches.stars rfl ih₁ ih₂
   | group h ih => exact Matches.group ih
 
 theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : List (String × List α)} :

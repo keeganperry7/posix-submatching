@@ -57,7 +57,6 @@ inductive Matches : List α → Regex α → Prop
   | star_nil {r : Regex α} :
     Matches [] r.star
   | stars {s₁ s₂ s : List α} {r : Regex α} :
-    s₁ ≠ [] →
     s₁ ++ s₂ = s →
     Matches s₁ r →
     Matches s₂ r.star →
@@ -106,6 +105,38 @@ theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
     | mul hs h₁ h₂ => exact ⟨_, _ , hs, h₁, h₂⟩
   · intro ⟨_, _, hs, h₁, h₂⟩
     exact Matches.mul hs h₁ h₂
+
+theorem Matches_star {s : List α} {r : Regex α} :
+  Matches s r.star ↔ s = [] ∨ (∃ s₁ s₂, s₁ ≠ [] ∧ s₁ ++ s₂ = s ∧ Matches s₁ r ∧ Matches s₂ r.star) := by
+  generalize hr : r.star = r'
+  constructor
+  · intro h
+    induction h with
+    | epsilon => nomatch hr
+    | char => nomatch hr
+    | plus_left => nomatch hr
+    | plus_right => nomatch hr
+    | mul => nomatch hr
+    | star_nil => exact Or.inl rfl
+    | @stars s₁ s₂ s _ hs' h₁ h₂ ih₁ ih₂ =>
+      simp at hr
+      subst hr
+      cases s₁ with
+      | nil =>
+        simp at hs'
+        subst hs'
+        exact ih₂ rfl
+      | cons x xs =>
+        exact Or.inr ⟨x::xs, s₂, by simp, hs', h₁, h₂⟩
+    | group => nomatch hr
+  · intro h
+    subst hr
+    match h with
+    | Or.inl h =>
+      subst h
+      exact Matches.star_nil
+    | Or.inr ⟨s₁, s₂, _, hs, h₁, h₂⟩ =>
+      exact Matches.stars hs h₁ h₂
 
 theorem Matches_group {n : String} {s k : List α} {r : Regex α} :
   Matches s (group n k r) ↔ Matches s r := by
@@ -210,10 +241,11 @@ theorem markEmpty_matches_nil {r : Regex α} {s : List α} :
       rw [←hs, List.append_eq_nil_iff]
       exact ⟨ih₁ h₁, ih₂ h₂⟩
   | star r ih =>
-    cases h with
-    | star_nil => rfl
-    | stars hn hs h₁ h₂ =>
-      exact absurd (ih h₁) hn
+    rw [markEmpty, Matches_star] at h
+    match h with
+    | Or.inl h => exact h
+    | Or.inr ⟨s₁, s₂, hs₁, hs, h₁, h₂⟩ =>
+      exact absurd (ih h₁) hs₁
   | group n s r ih =>
     cases h with
     | group h => exact ih h
@@ -307,20 +339,21 @@ theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
     rw [deriv]
     constructor
     · intro h
-      cases h with
-      | @stars s₁ s₂ _ _ hs₁ hs h₁ h₂ =>
-        cases s₁ with
-        | nil => contradiction
-        | cons x xs =>
-          simp at hs
-          rw [hs.left, ih] at h₁
-          exact Matches.mul hs.right h₁ h₂
+      rw [Matches_star] at h
+      simp at h
+      rcases h with ⟨s₁, hs₁, s₂, hs, h₁, h₂⟩
+      cases s₁ with
+      | nil => contradiction
+      | cons x xs =>
+        simp at hs
+        rw [hs.left, ih] at h₁
+        exact Matches.mul hs.right h₁ h₂
     · intro h
       cases h with
       | mul hs h₁ h₂ =>
         rw [←ih] at h₁
         rw [←hs, ←List.cons_append]
-        exact Matches.stars (by simp) rfl h₁ h₂
+        exact Matches.stars rfl h₁ h₂
   | group n k r ih =>
     rw [deriv, Matches_group, Matches_group]
     exact ih s
