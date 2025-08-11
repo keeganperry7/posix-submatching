@@ -9,7 +9,7 @@ variable {α : Type u}
 
 open Regex
 
-theorem extract_nil_posix {r : Regex α} {Γ : List (String × List α)} :
+theorem extract_nil_posix {r : Regex α} {Γ : List (Nat × List α)} :
   (∃ hr : r.nullable, r.extract hr = Γ) ↔ POSIX r [] Γ := by
   induction r generalizing Γ with
   | emptyset => exact ⟨nofun, nofun⟩
@@ -101,7 +101,7 @@ theorem extract_nil_posix {r : Regex α} {Γ : List (String × List α)} :
 
 variable [DecidableEq α]
 
-theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (String × List α)} :
+theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × List α)} :
   POSIX r (c::s) Γ ↔ POSIX (r.deriv c) s Γ := by
   induction r generalizing s Γ with
   | emptyset =>
@@ -266,7 +266,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (String × 
         rw [←ih] at h
         exact POSIX.group h
 
-theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (String × List α)} :
+theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
   POSIX r s Γ ↔ POSIX (r.derivs s) [] Γ := by
   induction s generalizing r with
   | nil => rfl
@@ -274,7 +274,7 @@ theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (String × List α)
     rw [posix_deriv, ih]
     rfl
 
-theorem captures_posix (r : Regex α) (s : List α) (Γ : List (String × List α)) :
+theorem captures_posix (r : Regex α) (s : List α) (Γ : List (Nat × List α)) :
   r.captures s = some Γ ↔ POSIX r s Γ := by
   simp [captures]
   rw [posix_derivs, extract_nil_posix]

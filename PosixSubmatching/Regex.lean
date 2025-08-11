@@ -13,30 +13,30 @@ inductive Regex (α :  Type u) : Type u where
   | plus : Regex α → Regex α → Regex α
   | mul : Regex α → Regex α → Regex α
   | star : Regex α → Regex α
-  | group : String → List α → Regex α → Regex α
+  | group : Nat → List α → Regex α → Regex α
   deriving Repr
 
 namespace Regex
 
-inductive Submatches : List α → Regex α → List (String × List α) → Prop
+inductive Submatches : List α → Regex α → List (Nat × List α) → Prop
   | epsilon : Submatches [] epsilon []
   | char {c : α} : Submatches [c] (char c) []
-  | left {s : List α} {r₁ r₂ : Regex α} {Γ : List (String × List α)} :
+  | left {s : List α} {r₁ r₂ : Regex α} {Γ : List (Nat × List α)} :
     Submatches s r₁ Γ →
     Submatches s (r₁.plus r₂) Γ
-  | right {s : List α} {r₁ r₂ : Regex α} {Γ : List (String × List α)} :
+  | right {s : List α} {r₁ r₂ : Regex α} {Γ : List (Nat × List α)} :
     Submatches s r₂ Γ →
     Submatches s (r₁.plus r₂) Γ
-  | mul {s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ₁ Γ₂ : List (String × List α)} :
+  | mul {s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ₁ Γ₂ : List (Nat × List α)} :
     Submatches s₁ r₁ Γ₁ →
     Submatches s₂ r₂ Γ₂ →
     Submatches (s₁ ++ s₂) (r₁.mul r₂) (Γ₁ ++ Γ₂)
   | star_nil {r : Regex α} : Submatches [] r.star []
-  | stars {s₁ s₂ : List α} {r : Regex α} {Γ₁ Γ₂ : List (String × List α)} :
+  | stars {s₁ s₂ : List α} {r : Regex α} {Γ₁ Γ₂ : List (Nat × List α)} :
     Submatches s₁ r Γ₁ →
     Submatches s₂ r.star Γ₂ →
     Submatches (s₁ ++ s₂) r.star (Γ₁ ++ Γ₂)
-  | group {n : String} {s cs : List α} {r : Regex α} {Γ : List (String × List α)} :
+  | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : List (Nat × List α)} :
     Submatches s r Γ →
     Submatches s (group n cs r) ((n, cs ++ s) :: Γ)
 
@@ -61,7 +61,7 @@ inductive Matches : List α → Regex α → Prop
     Matches s₁ r →
     Matches s₂ r.star →
     Matches s r.star
-  | group {n : String} {s k : List α} {r : Regex α} :
+  | group {n : Nat} {s k : List α} {r : Regex α} :
     Matches s r →
     Matches s (group n k r)
 
@@ -138,7 +138,7 @@ theorem Matches_star {s : List α} {r : Regex α} :
     | Or.inr ⟨s₁, s₂, _, hs, h₁, h₂⟩ =>
       exact Matches.stars hs h₁ h₂
 
-theorem Matches_group {n : String} {s k : List α} {r : Regex α} :
+theorem Matches_group {n : Nat} {s k : List α} {r : Regex α} :
   Matches s (group n k r) ↔ Matches s r := by
   constructor
   · intro h
@@ -160,39 +160,24 @@ def nullable : Regex α → Bool
 theorem nullable_iff_matches_nil {r : Regex α} :
   r.nullable ↔ Matches [] r := by
   induction r with
-  | emptyset =>
-    simp only [nullable, Bool.false_eq_true, false_iff]
-    intro h
-    nomatch h
+  | emptyset => exact ⟨nofun, nofun⟩
   | epsilon =>
     simp only [nullable, true_iff]
     exact Matches.epsilon
-  | char =>
-    simp only [nullable, Bool.false_eq_true, false_iff]
-    intro h
-    nomatch h
+  | char => exact ⟨nofun, nofun⟩
   | plus r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.or_eq_true]
     rw [ih₁, ih₂, Matches_plus]
   | mul r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.and_eq_true]
-    rw [ih₁, ih₂]
-    constructor
-    · intro ⟨h₁, h₂⟩
-      exact Matches.mul (List.append_nil []) h₁ h₂
-    · intro h
-      cases h with
-      | mul hs h₁ h₂ =>
-        rw [List.append_eq_nil_iff] at hs
-        rw [hs.left] at h₁
-        rw [hs.right] at h₂
-        exact ⟨h₁, h₂⟩
+    rw [ih₁, ih₂, Matches_mul]
+    simp [and_assoc]
   | star r =>
     simp only [nullable, true_iff]
     exact Matches.star_nil
-  | group n s r ih =>
-    rw [nullable, Matches_group]
-    exact ih
+  | group _ _ h ih =>
+    simp only [nullable]
+    rw [ih, Matches_group]
 
 def markEmpty : Regex α → Regex α
   | emptyset => emptyset
@@ -371,7 +356,7 @@ theorem Matches_derivs {r : Regex α} {s : List α} :
     rw [Matches_deriv, ih]
     rfl
 
-def extract : (r : Regex α) → r.nullable → List (String × List α)
+def extract : (r : Regex α) → r.nullable → List (Nat × List α)
   | epsilon, _ => []
   | plus r₁ r₂, hr =>
     if hr₁ : r₁.nullable
@@ -386,7 +371,7 @@ def extract : (r : Regex α) → r.nullable → List (String × List α)
   | star r, _ => []
   | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
-def captures : Regex α → List α → Option (List (String × List α))
+def captures : Regex α → List α → Option (List (Nat × List α))
   | r, s =>
     let r' := r.derivs s
     if h : r'.nullable then some (extract r' h) else none
