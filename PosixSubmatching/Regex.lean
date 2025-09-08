@@ -27,18 +27,38 @@ inductive Submatches : List α → Regex α → List (Nat × List α) → Prop
   | right {s : List α} {r₁ r₂ : Regex α} {Γ : List (Nat × List α)} :
     Submatches s r₂ Γ →
     Submatches s (r₁.plus r₂) Γ
-  | mul {s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ₁ Γ₂ : List (Nat × List α)} :
+  | mul {s s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+    s₁ ++ s₂ = s →
+    Γ₁ ++ Γ₂ = Γ →
     Submatches s₁ r₁ Γ₁ →
     Submatches s₂ r₂ Γ₂ →
-    Submatches (s₁ ++ s₂) (r₁.mul r₂) (Γ₁ ++ Γ₂)
+    Submatches s (r₁.mul r₂) Γ
   | star_nil {r : Regex α} : Submatches [] r.star []
-  | stars {s₁ s₂ : List α} {r : Regex α} {Γ₁ Γ₂ : List (Nat × List α)} :
+  | stars {s s₁ s₂ : List α} {r : Regex α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+    s₁ ++ s₂ = s →
+    Γ₁ ++ Γ₂ = Γ →
     Submatches s₁ r Γ₁ →
     Submatches s₂ r.star Γ₂ →
-    Submatches (s₁ ++ s₂) r.star (Γ₁ ++ Γ₂)
+    Submatches s r.star Γ
   | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : List (Nat × List α)} :
     Submatches s r Γ →
     Submatches s (group n cs r) ((n, cs ++ s) :: Γ)
+
+example :
+  Submatches
+    -- "aba"
+    ['a', 'b', 'a']
+    -- (₁a + b)*
+    (star (group 1 [] (plus (char 'a') (char 'b'))))
+    -- {1 ↦ "a", 1 ↦ "b", 1 ↦ "a"}
+    [(1, ['a']), (1, ['b']), (1, ['a'])] :=
+    Submatches.stars rfl rfl
+      (Submatches.group (Submatches.left Submatches.char))
+      (Submatches.stars rfl rfl
+        (Submatches.group (Submatches.right Submatches.char))
+        (Submatches.stars rfl rfl
+          (Submatches.group (Submatches.left Submatches.char))
+          (Submatches.star_nil)))
 
 inductive Matches : List α → Regex α → Prop
   | epsilon : Matches [] epsilon

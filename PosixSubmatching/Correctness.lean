@@ -10,7 +10,7 @@ variable {α : Type u}
 open Regex
 
 theorem extract_nil_posix {r : Regex α} {Γ : List (Nat × List α)} :
-  (∃ hr : r.nullable, r.extract hr = Γ) ↔ POSIX r [] Γ := by
+  (∃ hr : r.nullable, r.extract hr = Γ) ↔ POSIX [] r Γ := by
   induction r generalizing Γ with
   | emptyset => exact ⟨nofun, nofun⟩
   | epsilon =>
@@ -58,20 +58,20 @@ theorem extract_nil_posix {r : Regex α} {Γ : List (Nat × List α)} :
     · intro ⟨hr, h⟩
       rw [←h]
       rw [←List.nil_append []]
-      apply POSIX.mul
+      apply POSIX.mul rfl rfl
       simp [←ih₁, hr.left]
       simp [←ih₂, hr.right]
       simp_all
     · intro h
-      generalize hs : [] = s at h
       cases h with
-      | mul h₁ h₂ hn =>
+      | mul hs hg h₁ h₂ hn =>
         simp at hs
         rw [hs.left, ←ih₁] at h₁
         rcases h₁ with ⟨hr₁, h₁⟩
         rw [hs.right, ←ih₂] at h₂
         rcases h₂ with ⟨hr₂, h₂⟩
         simp [h₁, h₂, hr₁, hr₂]
+        exact hg
   | star r ih =>
     simp [extract]
     constructor
@@ -79,10 +79,9 @@ theorem extract_nil_posix {r : Regex α} {Γ : List (Nat × List α)} :
       subst h
       exact POSIX.star_nil
     · intro h
-      generalize hs : [] = s at h
       cases h with
       | star_nil => rfl
-      | stars h₁ h₂ hs₁ hn =>
+      | stars hs hg h₁ h₂ hs₁ hn =>
         simp at hs
         exact absurd hs.left hs₁
   | group n s r ih =>
@@ -102,7 +101,7 @@ theorem extract_nil_posix {r : Regex α} {Γ : List (Nat × List α)} :
 variable [DecidableEq α]
 
 theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × List α)} :
-  POSIX r (c::s) Γ ↔ POSIX (r.deriv c) s Γ := by
+  POSIX (c::s) r Γ ↔ POSIX s (r.deriv c) Γ := by
   induction r generalizing s Γ with
   | emptyset =>
     exact ⟨nofun, nofun⟩
@@ -144,9 +143,9 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
   | mul r₁ r₂ ih₁ ih₂ =>
     constructor
     · intro h
-      generalize hcs : c::s = cs at h
       cases h with
-      | @mul _ _ s₁ s₂ _ _ h₁ h₂ hn =>
+      | mul hcs hg h₁ h₂ hn =>
+        rename_i s₁ _ _ _
         simp [deriv]
         split_ifs with hr
         · cases s₁ with
@@ -157,7 +156,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
             rw [←POSIX_nil_markEmpty] at h₁
             apply POSIX.right
             rw [←List.nil_append s]
-            apply POSIX.mul
+            apply POSIX.mul rfl hg
             exact h₁
             exact h₂
             simp
@@ -176,9 +175,9 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
             cases hcs.left
             rw [ih₁] at h₁
             apply POSIX.left
-            rw [hcs.right]
+            rw [←hcs.right]
             simp_rw [List.cons_append, Matches_deriv] at hn
-            exact POSIX.mul h₁ h₂ hn
+            exact POSIX.mul rfl hg h₁ h₂ hn
         · cases s₁ with
           | nil =>
             rw [nullable_iff_matches_nil] at hr
@@ -189,27 +188,28 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
             cases hcs.right
             rw [ih₁] at h₁
             simp_rw [List.cons_append, Matches_deriv] at hn
-            exact POSIX.mul h₁ h₂ hn
+            exact POSIX.mul rfl hg h₁ h₂ hn
     · intro h
       simp at h
       split_ifs at h with hr
       · cases h with
         | left h =>
           cases h with
-          | mul h₁ h₂ hn =>
+          | mul hs hg h₁ h₂ hn =>
             rw [←ih₁] at h₁
             simp_rw [←Matches_deriv, ←List.cons_append] at hn
-            rw [←List.cons_append]
-            exact POSIX.mul h₁ h₂ hn
+            rw [←hs, ←List.cons_append]
+            exact POSIX.mul rfl hg h₁ h₂ hn
         | right h hr₁ =>
           cases h with
-          | mul h₁ h₂ hn =>
+          | mul hs hg h₁ h₂ hn =>
+            subst hs
             rw [←ih₂] at h₂
             cases (POSIX_markEmpty h₁)
             rw [POSIX_nil_markEmpty] at h₁
             simp
             rw [←List.nil_append (c::_)]
-            refine POSIX.mul h₁ h₂ ?_
+            refine POSIX.mul rfl hg h₁ h₂ ?_
             simp at hr₁
             simp
             intro x₁ hx₁ x₂ hcs h₁' h₂'
@@ -222,18 +222,18 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
               rw [Matches_deriv] at h₁'
               exact absurd (Matches.mul rfl h₁' h₂') hr₁
       · cases h with
-        | mul h₁ h₂ hn =>
+        | mul hs hg h₁ h₂ hn =>
+          subst hs
           rw [←ih₁] at h₁
           simp_rw [←Matches_deriv, ←List.cons_append] at hn
           rw [←List.cons_append]
-          exact POSIX.mul h₁ h₂ hn
+          exact POSIX.mul rfl hg h₁ h₂ hn
   | star r ih =>
     constructor
     · intro h
-      generalize hcs : c::s = cs at h
       cases h with
-      | star_nil => simp at hcs
-      | @stars _ s₁ s₂ _ _ h₁ h₂ hs₁ hn =>
+      | stars hcs hg h₁ h₂ hs₁ hn =>
+        rename_i s₁ _ _ _
         cases s₁ with
         | nil => nomatch hs₁
         | cons x xs =>
@@ -242,14 +242,15 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
           cases hcs.right
           rw [ih] at h₁
           simp_rw [List.cons_append, Matches_deriv] at hn
-          exact POSIX.mul h₁ h₂ hn
+          exact POSIX.mul rfl hg h₁ h₂ hn
     · intro h
       cases h with
-      | mul h₁ h₂ hn =>
+      | mul hs hg h₁ h₂ hn =>
+        subst hs
         rw [←ih] at h₁
         rw [←List.cons_append]
         simp_rw [←Matches_deriv, ←List.cons_append] at hn
-        exact POSIX.stars h₁ h₂ (by simp) hn
+        exact POSIX.stars rfl hg h₁ h₂ (by simp) hn
   | group n cs r ih =>
     constructor
     · intro h
@@ -267,7 +268,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : List (Nat × Lis
         exact POSIX.group h
 
 theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
-  POSIX r s Γ ↔ POSIX (r.derivs s) [] Γ := by
+  POSIX s r Γ ↔ POSIX [] (r.derivs s) Γ := by
   induction s generalizing r with
   | nil => rfl
   | cons x xs ih =>
@@ -275,7 +276,7 @@ theorem posix_derivs {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
     rfl
 
 theorem captures_posix (r : Regex α) (s : List α) (Γ : List (Nat × List α)) :
-  r.captures s = some Γ ↔ POSIX r s Γ := by
+  r.captures s = some Γ ↔ POSIX s r Γ := by
   simp [captures]
   rw [posix_derivs, extract_nil_posix]
 
