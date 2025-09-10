@@ -18,6 +18,31 @@ inductive Regex (α :  Type u) : Type u where
 
 namespace Regex
 
+inductive Matches : List α → Regex α → Prop
+  | epsilon : Matches [] epsilon
+  | char {c : α} : Matches [c] (char c)
+  | plus_left {s : List α} {r₁ r₂ : Regex α} :
+    Matches s r₁ →
+    Matches s (r₁.plus r₂)
+  | plus_right {s : List α} {r₁ r₂ : Regex α} :
+    Matches s r₂ →
+    Matches s (r₁.plus r₂)
+  | mul {s₁ s₂ s : List α} {r₁ r₂ : Regex α} :
+    s₁ ++ s₂ = s →
+    Matches s₁ r₁ →
+    Matches s₂ r₂ →
+    Matches s (r₁.mul r₂)
+  | star_nil {r : Regex α} :
+    Matches [] r.star
+  | stars {s₁ s₂ s : List α} {r : Regex α} :
+    s₁ ++ s₂ = s →
+    Matches s₁ r →
+    Matches s₂ r.star →
+    Matches s r.star
+  | group {n : Nat} {s cs : List α} {r : Regex α} :
+    Matches s r →
+    Matches s (group n cs r)
+
 inductive Submatches : List α → Regex α → List (Nat × List α) → Prop
   | epsilon : Submatches [] epsilon []
   | char {c : α} : Submatches [c] (char c) []
@@ -60,30 +85,44 @@ example :
           (Submatches.group (Submatches.left Submatches.char))
           (Submatches.star_nil)))
 
-inductive Matches : List α → Regex α → Prop
-  | epsilon : Matches [] epsilon
-  | char {c : α} : Matches [c] (char c)
-  | plus_left {s : List α} {r₁ r₂ : Regex α} :
-    Matches s r₁ →
-    Matches s (r₁.plus r₂)
-  | plus_right {s : List α} {r₁ r₂ : Regex α} :
-    Matches s r₂ →
-    Matches s (r₁.plus r₂)
-  | mul {s₁ s₂ s : List α} {r₁ r₂ : Regex α} :
-    s₁ ++ s₂ = s →
-    Matches s₁ r₁ →
-    Matches s₂ r₂ →
-    Matches s (r₁.mul r₂)
-  | star_nil {r : Regex α} :
-    Matches [] r.star
-  | stars {s₁ s₂ s : List α} {r : Regex α} :
-    s₁ ++ s₂ = s →
-    Matches s₁ r →
-    Matches s₂ r.star →
-    Matches s r.star
-  | group {n : Nat} {s k : List α} {r : Regex α} :
-    Matches s r →
-    Matches s (group n k r)
+theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : List (Nat × List α)} (h : Submatches s r Γ) :
+  r.Matches s := by
+  induction h with
+  | epsilon => exact Matches.epsilon
+  | char => exact Matches.char
+  | left h ih => exact Matches.plus_left ih
+  | right h ih => exact Matches.plus_right ih
+  | mul hs _ h₁ h₂ ih₁ ih₂ =>
+    exact Matches.mul hs ih₁ ih₂
+  | star_nil => exact Matches.star_nil
+  | stars hs _ h₁ h₂ ih₁ ih₂ =>
+    exact Matches.stars hs ih₁ ih₂
+  | group h ih => exact Matches.group ih
+
+theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches s r) :
+  ∃ Γ, Submatches s r Γ := by
+  induction h with
+  | epsilon => exact ⟨[], Submatches.epsilon⟩
+  | char => exact ⟨[], Submatches.char⟩
+  | plus_left h ih =>
+    rcases ih with ⟨Γ, ih⟩
+    exact ⟨Γ, Submatches.left ih⟩
+  | plus_right h ih =>
+    rcases ih with ⟨Γ, ih⟩
+    exact ⟨Γ, Submatches.right ih⟩
+  | mul hs h₁ h₂ ih₁ ih₂ =>
+    rcases ih₁ with ⟨Γ₁, ih₁⟩
+    rcases ih₂ with ⟨Γ₂, ih₂⟩
+    exact ⟨Γ₁ ++ Γ₂, Submatches.mul hs rfl ih₁ ih₂⟩
+  | star_nil =>
+    exact ⟨[], Submatches.star_nil⟩
+  | stars hs h₁ h₂ ih₁ ih₂ =>
+    rcases ih₁ with ⟨Γ₁, ih₁⟩
+    rcases ih₂ with ⟨Γ₂, ih₂⟩
+    exact ⟨Γ₁ ++ Γ₂, Submatches.stars hs rfl ih₁ ih₂⟩
+  | @group n s cs r h ih =>
+    rcases ih with ⟨Γ, ih⟩
+    exact ⟨(n, cs ++ s) :: Γ, Submatches.group ih⟩
 
 theorem Matches_epsilon {s : List α} :
   Matches s epsilon ↔ s = [] := by
