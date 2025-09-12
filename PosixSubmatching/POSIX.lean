@@ -33,7 +33,7 @@ inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
     s₁ ≠ [] →
     ¬(∃ s₃ s₄, s₃ ≠ [] ∧ s₃ ++ s₄ = s₂ ∧ r.Matches (s₁ ++ s₃) ∧ (star r).Matches s₄) →
     POSIX s (star r) Γ
-  | group {n : Nat} {cs : List α} {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
+  | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : SubmatchEnv α} :
     POSIX s r Γ →
     POSIX s (group n cs r) ((n, cs ++ s) :: Γ)
 
