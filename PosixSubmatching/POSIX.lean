@@ -6,17 +6,17 @@ universe u
 
 variable {α : Type u}
 
-inductive POSIX : List α → Regex α → List (Nat × List α) → Prop
+inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
   | epsilon : POSIX [] epsilon []
   | char (c : α) : POSIX [c] (char c) []
-  | left {r₁ r₂ : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+  | left {r₁ r₂ : Regex α} {s : List α} {Γ : SubmatchEnv α} :
     POSIX s r₁ Γ →
     POSIX s (plus r₁ r₂) Γ
-  | right {r₁ r₂ : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+  | right {r₁ r₂ : Regex α} {s : List α} {Γ : SubmatchEnv α} :
     POSIX s r₂ Γ →
     ¬r₁.Matches s →
     POSIX s (plus r₁ r₂) Γ
-  | mul {r₁ r₂ : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+  | mul {r₁ r₂ : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
     s₁ ++ s₂ = s →
     Γ₁ ++ Γ₂ = Γ →
     POSIX s₁ r₁ Γ₁ →
@@ -25,7 +25,7 @@ inductive POSIX : List α → Regex α → List (Nat × List α) → Prop
     POSIX s (mul r₁ r₂) Γ
   | star_nil {r : Regex α} :
     POSIX [] r.star []
-  | stars {r : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+  | stars {r : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
     s₁ ++ s₂ = s →
     Γ₁ ++ Γ₂ = Γ →
     POSIX s₁ r Γ₁ →
@@ -33,7 +33,7 @@ inductive POSIX : List α → Regex α → List (Nat × List α) → Prop
     s₁ ≠ [] →
     ¬(∃ s₃ s₄, s₃ ≠ [] ∧ s₃ ++ s₄ = s₂ ∧ r.Matches (s₁ ++ s₃) ∧ (star r).Matches s₄) →
     POSIX s (star r) Γ
-  | group {n : Nat} {cs : List α} {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+  | group {n : Nat} {cs : List α} {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
     POSIX s r Γ →
     POSIX s (group n cs r) ((n, cs ++ s) :: Γ)
 
@@ -59,7 +59,7 @@ example :
     cases h
     contradiction
 
-theorem POSIX.matches {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+theorem POSIX.matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r Γ → r.Matches s := by
   intro h
   induction h with
@@ -72,7 +72,7 @@ theorem POSIX.matches {r : Regex α} {s : List α} {Γ : List (Nat × List α)} 
   | stars hs _ h₁ h₂ hv hn ih₁ ih₂ => exact Matches.stars hs ih₁ ih₂
   | group h ih => exact Matches.group ih
 
-theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r Γ → Submatches s r Γ := by
   intro h
   induction h with
@@ -85,12 +85,12 @@ theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : List (Nat × List α
   | stars hs hg h₁ h₂ hv hn ih₁ ih₂ => exact Submatches.stars hs hg ih₁ ih₂
   | group h ih => exact Submatches.group ih
 
-theorem POSIX_markEmpty {r : Regex α} {s : List α} {Γ : List (Nat × List α)} :
+theorem POSIX_markEmpty {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r.markEmpty Γ → s = [] := by
   intro h
   exact markEmpty_matches_nil h.matches
 
-theorem POSIX_nil_markEmpty {r : Regex α} {Γ : List (Nat × List α)} :
+theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
   POSIX [] r.markEmpty Γ ↔ POSIX [] r Γ := by
   induction r generalizing Γ with
   | emptyset => exact ⟨nofun, nofun⟩
@@ -190,7 +190,7 @@ theorem longest_split_unique (P₁ P₂ : List α → Prop) {s₁₁ s₁₂ s�
     | cons x xs =>
       exact absurd hr₁₂ (h₂ (x::xs) (by simp) s₁₂ rfl hr₁₁)
 
-theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : List (Nat × List α)}
+theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
   (h₁ : POSIX s r Γ₁) (h₂ : POSIX s r Γ₂) :
   Γ₁ = Γ₂ := by
   induction h₁ generalizing Γ₂ with

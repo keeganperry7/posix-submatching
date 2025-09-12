@@ -43,29 +43,31 @@ inductive Matches : List α → Regex α → Prop
     Matches s r →
     Matches s (group n cs r)
 
-inductive Submatches : List α → Regex α → List (Nat × List α) → Prop
+abbrev SubmatchEnv (α : Type u) := List (Nat × List α)
+
+inductive Submatches : List α → Regex α → SubmatchEnv α → Prop
   | epsilon : Submatches [] epsilon []
   | char {c : α} : Submatches [c] (char c) []
-  | left {s : List α} {r₁ r₂ : Regex α} {Γ : List (Nat × List α)} :
+  | left {s : List α} {r₁ r₂ : Regex α} {Γ : SubmatchEnv α} :
     Submatches s r₁ Γ →
     Submatches s (r₁.plus r₂) Γ
-  | right {s : List α} {r₁ r₂ : Regex α} {Γ : List (Nat × List α)} :
+  | right {s : List α} {r₁ r₂ : Regex α} {Γ : SubmatchEnv α} :
     Submatches s r₂ Γ →
     Submatches s (r₁.plus r₂) Γ
-  | mul {s s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+  | mul {s s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
     s₁ ++ s₂ = s →
     Γ₁ ++ Γ₂ = Γ →
     Submatches s₁ r₁ Γ₁ →
     Submatches s₂ r₂ Γ₂ →
     Submatches s (r₁.mul r₂) Γ
   | star_nil {r : Regex α} : Submatches [] r.star []
-  | stars {s s₁ s₂ : List α} {r : Regex α} {Γ Γ₁ Γ₂ : List (Nat × List α)} :
+  | stars {s s₁ s₂ : List α} {r : Regex α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
     s₁ ++ s₂ = s →
     Γ₁ ++ Γ₂ = Γ →
     Submatches s₁ r Γ₁ →
     Submatches s₂ r.star Γ₂ →
     Submatches s r.star Γ
-  | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : List (Nat × List α)} :
+  | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : SubmatchEnv α} :
     Submatches s r Γ →
     Submatches s (group n cs r) ((n, cs ++ s) :: Γ)
 
@@ -85,7 +87,7 @@ example :
           (Submatches.group (Submatches.left Submatches.char))
           (Submatches.star_nil)))
 
-theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : List (Nat × List α)} (h : Submatches s r Γ) :
+theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h : Submatches s r Γ) :
   r.Matches s := by
   induction h with
   | epsilon => exact Matches.epsilon
@@ -415,7 +417,7 @@ theorem Matches_derivs {r : Regex α} {s : List α} :
     rw [Matches_deriv, ih]
     rfl
 
-def extract : (r : Regex α) → r.nullable → List (Nat × List α)
+def extract : (r : Regex α) → r.nullable → SubmatchEnv α
   | epsilon, _ => []
   | plus r₁ r₂, hr =>
     if hr₁ : r₁.nullable
@@ -430,7 +432,7 @@ def extract : (r : Regex α) → r.nullable → List (Nat × List α)
   | star r, _ => []
   | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
-def captures : Regex α → List α → Option (List (Nat × List α))
+def captures : Regex α → List α → Option (SubmatchEnv α)
   | r, s =>
     let r' := r.derivs s
     if h : r'.nullable then some (extract r' h) else none
