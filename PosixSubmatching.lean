@@ -3,3 +3,4 @@
 import PosixSubmatching.Regex
 import PosixSubmatching.POSIX
 import PosixSubmatching.Correctness
+import PosixSubmatching.Examples

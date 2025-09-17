@@ -18,30 +18,30 @@ inductive Regex (α :  Type u) : Type u where
 
 namespace Regex
 
-inductive Matches : List α → Regex α → Prop
-  | epsilon : Matches [] epsilon
-  | char {c : α} : Matches [c] (char c)
+inductive Matches : Regex α → List α → Prop
+  | epsilon : Matches epsilon []
+  | char {c : α} : Matches (char c) [c]
   | plus_left {s : List α} {r₁ r₂ : Regex α} :
-    Matches s r₁ →
-    Matches s (r₁.plus r₂)
+    Matches r₁ s →
+    Matches (r₁.plus r₂) s
   | plus_right {s : List α} {r₁ r₂ : Regex α} :
-    Matches s r₂ →
-    Matches s (r₁.plus r₂)
+    Matches r₂ s →
+    Matches (r₁.plus r₂) s
   | mul {s₁ s₂ s : List α} {r₁ r₂ : Regex α} :
     s₁ ++ s₂ = s →
-    Matches s₁ r₁ →
-    Matches s₂ r₂ →
-    Matches s (r₁.mul r₂)
+    Matches r₁ s₁ →
+    Matches r₂ s₂ →
+    Matches (r₁.mul r₂) s
   | star_nil {r : Regex α} :
-    Matches [] r.star
+    Matches r.star []
   | stars {s₁ s₂ s : List α} {r : Regex α} :
     s₁ ++ s₂ = s →
-    Matches s₁ r →
-    Matches s₂ r.star →
-    Matches s r.star
+    Matches r s₁ →
+    Matches r.star s₂ →
+    Matches r.star s
   | group {n : Nat} {s cs : List α} {r : Regex α} :
-    Matches s r →
-    Matches s (group n cs r)
+    Matches r s →
+    Matches (group n cs r) s
 
 abbrev SubmatchEnv (α : Type u) := List (Nat × List α)
 
@@ -101,7 +101,7 @@ theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h
     exact Matches.stars hs ih₁ ih₂
   | group h ih => exact Matches.group ih
 
-theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches s r) :
+theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches r s) :
   ∃ Γ, Submatches s r Γ := by
   induction h with
   | epsilon => exact ⟨[], Submatches.epsilon⟩
@@ -127,7 +127,7 @@ theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches s r) :
     exact ⟨(n, cs ++ s) :: Γ, Submatches.group ih⟩
 
 theorem Matches_epsilon {s : List α} :
-  Matches s epsilon ↔ s = [] := by
+  Matches epsilon s ↔ s = [] := by
   constructor
   · intro h
     cases h
@@ -137,7 +137,7 @@ theorem Matches_epsilon {s : List α} :
     exact Matches.epsilon
 
 theorem Matches_char {c : α} {s : List α} :
-  Matches s (char c) ↔ s = [c] := by
+  Matches (char c) s ↔ s = [c] := by
   constructor
   · intro h
     cases h
@@ -147,7 +147,7 @@ theorem Matches_char {c : α} {s : List α} :
     exact Matches.char
 
 theorem Matches_plus {s : List α} {r₁ r₂ : Regex α} :
-  Matches s (r₁.plus r₂) ↔ Matches s r₁ ∨ Matches s r₂ := by
+  Matches (r₁.plus r₂) s ↔ Matches r₁ s ∨ Matches r₂ s := by
   constructor
   · intro h
     cases h with
@@ -159,7 +159,7 @@ theorem Matches_plus {s : List α} {r₁ r₂ : Regex α} :
     | inr h => exact Matches.plus_right h
 
 theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
-  Matches s (r₁.mul r₂) ↔ ∃ s₁ s₂, s₁ ++ s₂ = s ∧ Matches s₁ r₁ ∧ Matches s₂ r₂ := by
+  Matches (r₁.mul r₂) s ↔ ∃ s₁ s₂, s₁ ++ s₂ = s ∧ Matches r₁ s₁ ∧ Matches r₂ s₂ := by
   constructor
   · intro h
     cases h with
@@ -168,7 +168,7 @@ theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
     exact Matches.mul hs h₁ h₂
 
 theorem Matches_star {s : List α} {r : Regex α} :
-  Matches s r.star ↔ s = [] ∨ (∃ s₁ s₂, s₁ ≠ [] ∧ s₁ ++ s₂ = s ∧ Matches s₁ r ∧ Matches s₂ r.star) := by
+  Matches r.star s ↔ s = [] ∨ (∃ s₁ s₂, s₁ ≠ [] ∧ s₁ ++ s₂ = s ∧ Matches r s₁ ∧ Matches r.star s₂) := by
   generalize hr : r.star = r'
   constructor
   · intro h
@@ -200,7 +200,7 @@ theorem Matches_star {s : List α} {r : Regex α} :
       exact Matches.stars hs h₁ h₂
 
 theorem Matches_group {n : Nat} {s k : List α} {r : Regex α} :
-  Matches s (group n k r) ↔ Matches s r := by
+  Matches (group n k r) s ↔ Matches r s := by
   constructor
   · intro h
     cases h with
@@ -219,7 +219,7 @@ def nullable : Regex α → Bool
   | group _ _ r => r.nullable
 
 theorem nullable_iff_matches_nil {r : Regex α} :
-  r.nullable ↔ Matches [] r := by
+  r.nullable ↔ Matches r [] := by
   induction r with
   | emptyset => exact ⟨nofun, nofun⟩
   | epsilon =>
@@ -269,7 +269,7 @@ theorem markEmpty_nullable {r : Regex α} :
     exact ih
 
 theorem markEmpty_matches_nil {r : Regex α} {s : List α} :
-  Matches s r.markEmpty → s = [] := by
+  Matches r.markEmpty s → s = [] := by
   intro h
   induction r generalizing s with
   | emptyset => nomatch h
@@ -312,7 +312,7 @@ def deriv : Regex α → α → Regex α
   | group n s r, c => group n (s ++ [c]) (r.deriv c)
 
 theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
-  Matches (c::s) r ↔ Matches s (r.deriv c) := by
+  Matches r (c::s) ↔ Matches (r.deriv c) s := by
   induction r generalizing s with
   | emptyset => exact ⟨nofun, nofun⟩
   | epsilon => exact ⟨nofun, nofun⟩

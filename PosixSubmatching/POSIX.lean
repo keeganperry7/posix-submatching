@@ -166,7 +166,7 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
         rw [←ih] at h
         exact POSIX.group h
 
-theorem longest_split_unique (P₁ P₂ : List α → Prop) {s₁₁ s₁₂ s₂₁ s₂₂ : List α}
+theorem longest_split_unique {P₁ P₂ : List α → Prop} {s₁₁ s₁₂ s₂₁ s₂₂ : List α}
   (hs : s₁₁ ++ s₁₂ = s₂₁ ++ s₂₂)
   (hr₁₁ : P₁ s₁₁) (hr₁₂ : P₂ s₁₂)
   (hr₂₁ : P₁ s₂₁) (hr₂₂ : P₂ s₂₂)
@@ -214,7 +214,6 @@ theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
       rw [←hs'] at hs
       have hs' :=
         longest_split_unique
-          r₁.Matches _
           hs
           h₁₁.matches h₁₂.matches
           h₂₁.matches h₂₂.matches
@@ -238,7 +237,6 @@ theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
       rw [←hs'] at hs
       have hs' :=
         longest_split_unique
-          r.Matches _
           hs
           h₁₁.matches h₁₂.matches
           h₂₁.matches h₂₂.matches
