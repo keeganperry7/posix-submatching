@@ -421,10 +421,10 @@ def extract : (r : Regex α) → r.nullable → SubmatchEnv α
   | epsilon, _ => []
   | plus r₁ r₂, hr =>
     if hr₁ : r₁.nullable
-      then extract r₁ hr₁
-      else
-        have hr₂ := Or.resolve_left (Bool.or_eq_true _ _▸ hr) hr₁
-        extract r₂ hr₂
+    then extract r₁ hr₁
+    else
+      have hr₂ := (Bool.or_eq_true_iff.mp hr).resolve_left hr₁
+      extract r₂ hr₂
   | mul r₁ r₂, hr => by
     have hr₁ := Bool.and_elim_left hr
     have hr₂ := Bool.and_elim_right hr
