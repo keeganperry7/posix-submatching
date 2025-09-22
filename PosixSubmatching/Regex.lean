@@ -11,6 +11,7 @@ inductive Regex (α :  Type u) : Type u where
   | epsilon : Regex α
   | char : α → Regex α
   | plus : Regex α → Regex α → Regex α
+  | and : Regex α → Regex α → Regex α
   | mul : Regex α → Regex α → Regex α
   | star : Regex α → Regex α
   | group : Nat → List α → Regex α → Regex α
@@ -27,6 +28,10 @@ inductive Matches : Regex α → List α → Prop
   | plus_right {s : List α} {r₁ r₂ : Regex α} :
     Matches r₂ s →
     Matches (r₁.plus r₂) s
+  | and {s : List α} {r₁ r₂ : Regex α} :
+    Matches r₁ s →
+    Matches r₂ s →
+    Matches (r₁.and r₂) s
   | mul {s₁ s₂ s : List α} {r₁ r₂ : Regex α} :
     s₁ ++ s₂ = s →
     Matches r₁ s₁ →
@@ -54,6 +59,11 @@ inductive Submatches : List α → Regex α → SubmatchEnv α → Prop
   | right {s : List α} {r₁ r₂ : Regex α} {Γ : SubmatchEnv α} :
     Submatches s r₂ Γ →
     Submatches s (r₁.plus r₂) Γ
+  | and {s : List α} {r₁ r₂ : Regex α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
+    Γ₁ ++ Γ₂ = Γ →
+    Submatches s r₁ Γ₁ →
+    Submatches s r₂ Γ₂ →
+    Submatches s (r₁.and r₂) Γ
   | mul {s s₁ s₂ : List α} {r₁ r₂ : Regex α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
     s₁ ++ s₂ = s →
     Γ₁ ++ Γ₂ = Γ →
@@ -94,6 +104,7 @@ theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h
   | char => exact Matches.char
   | left h ih => exact Matches.plus_left ih
   | right h ih => exact Matches.plus_right ih
+  | and _ h₁ h₂ ih₁ ih₂ => exact Matches.and ih₁ ih₂
   | mul hs _ h₁ h₂ ih₁ ih₂ =>
     exact Matches.mul hs ih₁ ih₂
   | star_nil => exact Matches.star_nil
@@ -112,6 +123,10 @@ theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches r s) :
   | plus_right h ih =>
     rcases ih with ⟨Γ, ih⟩
     exact ⟨Γ, Submatches.right ih⟩
+  | and h₁ h₂ ih₁ ih₂ =>
+    rcases ih₁ with ⟨Γ₁, ih₁⟩
+    rcases ih₂ with ⟨Γ₂, ih₂⟩
+    exact ⟨Γ₁ ++ Γ₂, Submatches.and rfl ih₁ ih₂⟩
   | mul hs h₁ h₂ ih₁ ih₂ =>
     rcases ih₁ with ⟨Γ₁, ih₁⟩
     rcases ih₂ with ⟨Γ₂, ih₂⟩
@@ -158,6 +173,15 @@ theorem Matches_plus {s : List α} {r₁ r₂ : Regex α} :
     | inl h => exact Matches.plus_left h
     | inr h => exact Matches.plus_right h
 
+theorem Matches_and {s : List α} {r₁ r₂ : Regex α} :
+  Matches (r₁.and r₂) s ↔ Matches r₁ s ∧ Matches r₂ s := by
+  constructor
+  · intro h
+    cases h with
+    | and h₁ h₂ => exact ⟨h₁, h₂⟩
+  · intro ⟨h₁, h₂⟩
+    exact Matches.and h₁ h₂
+
 theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
   Matches (r₁.mul r₂) s ↔ ∃ s₁ s₂, s₁ ++ s₂ = s ∧ Matches r₁ s₁ ∧ Matches r₂ s₂ := by
   constructor
@@ -172,14 +196,11 @@ theorem Matches_star {s : List α} {r : Regex α} :
   generalize hr : r.star = r'
   constructor
   · intro h
-    induction h with
-    | epsilon => nomatch hr
-    | char => nomatch hr
-    | plus_left => nomatch hr
-    | plus_right => nomatch hr
-    | mul => nomatch hr
-    | star_nil => exact Or.inl rfl
-    | @stars s₁ s₂ s _ hs' h₁ h₂ ih₁ ih₂ =>
+    induction h
+    any_goals contradiction
+    · case star_nil =>
+      exact Or.inl rfl
+    · case stars s₁ s₂ s _ hs' h₁ h₂ ih₁ ih₂ =>
       simp at hr
       subst hr
       cases s₁ with
@@ -189,7 +210,6 @@ theorem Matches_star {s : List α} {r : Regex α} :
         exact ih₂ rfl
       | cons x xs =>
         exact Or.inr ⟨x::xs, s₂, by simp, hs', h₁, h₂⟩
-    | group => nomatch hr
   · intro h
     subst hr
     match h with
@@ -214,6 +234,7 @@ def nullable : Regex α → Bool
   | epsilon => true
   | char _ => false
   | plus r₁ r₂ => r₁.nullable || r₂.nullable
+  | and r₁ r₂ => r₁.nullable && r₂.nullable
   | mul r₁ r₂ => r₁.nullable && r₂.nullable
   | star _ => true
   | group _ _ r => r.nullable
@@ -229,6 +250,9 @@ theorem nullable_iff_matches_nil {r : Regex α} :
   | plus r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.or_eq_true]
     rw [ih₁, ih₂, Matches_plus]
+  | and r₁ r₂ ih₁ ih₂ =>
+    simp only [nullable, Bool.and_eq_true]
+    rw [ih₁, ih₂, Matches_and]
   | mul r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.and_eq_true]
     rw [ih₁, ih₂, Matches_mul]
@@ -245,6 +269,7 @@ def markEmpty : Regex α → Regex α
   | char _ => emptyset
   | epsilon => epsilon
   | plus r₁ r₂ => plus r₁.markEmpty r₂.markEmpty
+  | and r₁ r₂ => and r₁.markEmpty r₂.markEmpty
   | mul r₁ r₂ => mul r₁.markEmpty r₂.markEmpty
   | star r => star r.markEmpty
   | group n s r => group n s r.markEmpty
@@ -256,6 +281,9 @@ theorem markEmpty_nullable {r : Regex α} :
   | epsilon => rfl
   | char _ => rfl
   | plus r₁ r₂ ih₁ ih₂ =>
+    rw [markEmpty, nullable, nullable]
+    rw [ih₁, ih₂]
+  | and r₁ r₂ ih₁ ih₂ =>
     rw [markEmpty, nullable, nullable]
     rw [ih₁, ih₂]
   | mul r₁ r₂ ih₁ ih₂ =>
@@ -281,6 +309,9 @@ theorem markEmpty_matches_nil {r : Regex α} {s : List α} :
     cases h with
     | plus_left h => exact ih₁ h
     | plus_right h => exact ih₂ h
+  | and r₁ r₂ ih₁ ih₂ =>
+    cases h with
+    | and h₁ h₂ => exact ih₁ h₁
   | mul r₁ r₂ ih₁ ih₂ =>
     cases h with
     | mul hs h₁ h₂ =>
@@ -304,6 +335,7 @@ def deriv : Regex α → α → Regex α
   | epsilon, _ => emptyset
   | char d, c => if c = d then epsilon else emptyset
   | plus r₁ r₂, c => (r₁.deriv c).plus (r₂.deriv c)
+  | and r₁ r₂, c => (r₁.deriv c).and (r₂.deriv c)
   | mul r₁ r₂, c =>
     if r₁.nullable
       then ((r₁.deriv c).mul r₂).plus (r₁.markEmpty.mul (r₂.deriv c))
@@ -333,6 +365,10 @@ theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
   | plus r₁ r₂ ih₁ ih₂ =>
     rw [deriv]
     rw [Matches_plus, Matches_plus]
+    rw [ih₁, ih₂]
+  | and r₁ r₂ ih₁ ih₂ =>
+    rw [deriv]
+    rw [Matches_and, Matches_and]
     rw [ih₁, ih₂]
   | mul r₁ r₂ ih₁ ih₂ =>
     rw [deriv]
@@ -425,6 +461,10 @@ def extract : (r : Regex α) → r.nullable → SubmatchEnv α
     else
       have hr₂ := (Bool.or_eq_true_iff.mp hr).resolve_left hr₁
       extract r₂ hr₂
+  | and r₁ r₂, hr => by
+    have hr₁ := Bool.and_elim_left hr
+    have hr₂ := Bool.and_elim_right hr
+    exact extract r₁ hr₁ ++ extract r₂ hr₂
   | mul r₁ r₂, hr => by
     have hr₁ := Bool.and_elim_left hr
     have hr₂ := Bool.and_elim_right hr

@@ -52,6 +52,23 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
           rw [←ih₂] at h
           rcases h with ⟨hr₂, h⟩
           exact ⟨Or.inr hr₂, h⟩
+  | and r₁ r₂ ih₁ ih₂ =>
+    simp [extract]
+    constructor
+    · intro ⟨hr, h⟩
+      rw [←h]
+      apply POSIX.and rfl
+      simp [←ih₁, hr.left]
+      simp [←ih₂, hr.right]
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rcases h₁ with ⟨hr₁, h₁⟩
+        rw [←ih₂] at h₂
+        rcases h₂ with ⟨hr₂, h₂⟩
+        simp [h₁, h₂, hr₁, hr₂]
+        exact hg
   | mul r₁ r₂ ih₁ ih₂ =>
     simp [extract]
     constructor
@@ -140,6 +157,20 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
         rw [←ih₂] at h
         rw [←Matches_deriv] at hn
         exact POSIX.right h hn
+  | and r₁ r₂ ih₁ ih₂ =>
+    constructor
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [ih₁] at h₁
+        rw [ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rw [←ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
   | mul r₁ r₂ ih₁ ih₂ =>
     constructor
     · intro h

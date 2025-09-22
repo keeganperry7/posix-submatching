@@ -23,6 +23,11 @@ inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
     POSIX s₂ r₂ Γ₂ →
     ¬(∃ s₃ s₄, s₃ ≠ [] ∧ s₃ ++ s₄ = s₂ ∧ r₁.Matches (s₁ ++ s₃) ∧ r₂.Matches s₄) →
     POSIX s (mul r₁ r₂) Γ
+  | and {r₁ r₂ : Regex α} {s : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
+    Γ₁ ++ Γ₂ = Γ →
+    POSIX s r₁ Γ₁ →
+    POSIX s r₂ Γ₂ →
+    POSIX s (and r₁ r₂) Γ
   | star_nil {r : Regex α} :
     POSIX [] r.star []
   | stars {r : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
@@ -67,6 +72,7 @@ theorem POSIX.matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   | char c => exact Matches.char
   | left h ih => exact Matches.plus_left ih
   | right h hn ih => exact Matches.plus_right ih
+  | and _ h₁ h₂ ih₁ ih₂ => exact Matches.and ih₁ ih₂
   | mul hs _ h₁ h₂ hn ih₁ ih₂ => exact Matches.mul hs ih₁ ih₂
   | star_nil => exact Matches.star_nil
   | stars hs _ h₁ h₂ hv hn ih₁ ih₂ => exact Matches.stars hs ih₁ ih₂
@@ -80,6 +86,7 @@ theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   | char c => exact Submatches.char
   | left h ih => exact Submatches.left ih
   | right h hn ih => exact Submatches.right ih
+  | and hg h₁ h₂ ih₁ ih₂ => exact Submatches.and hg ih₁ ih₂
   | mul hs hg h₁ h₂ hn ih₁ ih₂ => exact Submatches.mul hs hg ih₁ ih₂
   | star_nil => exact Submatches.star_nil
   | stars hs hg h₁ h₂ hv hn ih₁ ih₂ => exact Submatches.stars hs hg ih₁ ih₂
@@ -116,6 +123,20 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
         rw [←ih₂] at h
         rw [←nullable_iff_matches_nil, ←markEmpty_nullable, nullable_iff_matches_nil] at hn
         exact POSIX.right h hn
+  | and r₁ r₂ ih₁ ih₂ =>
+    constructor
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [ih₁] at h₁
+        rw [ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rw [←ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
   | mul r₁ r₂ ih₁ ih₂ =>
     rw [markEmpty]
     constructor
@@ -208,6 +229,11 @@ theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
     cases h₂ with
     | left h₂ => exact absurd h₂.matches hn
     | right h₂ hn' => exact ih h₂
+  | and hg₁ h₁₁ h₁₂ ih₁ ih₂ =>
+    cases h₂ with
+    | and hg₂ h₂₁ h₂₂ =>
+      subst hg₁ hg₂
+      rw [ih₁ h₂₁, ih₂ h₂₂]
   | @mul r₁ r₂ _ _ _ _ _ _ hs hg h₁₁ h₁₂ hn ih₁ ih₂ =>
     cases h₂ with
     | mul hs' hg' h₂₁ h₂₂ hn' =>
