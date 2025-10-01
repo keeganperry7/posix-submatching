@@ -1,6 +1,7 @@
 import PosixSubmatching.Regex
-import PosixSubmatching.Value
+import PosixSubmatching.POSIX
 import Mathlib.Tactic.GeneralizeProofs
+import Mathlib.Tactic.ApplyAt
 
 universe u
 
@@ -8,149 +9,278 @@ variable {α : Type u}
 
 open Regex
 
-theorem extract_extract'_nil {r : Regex α} (hn : r.nullable) :
-  r.extract hn = r.extract' (r.mkeps hn) := by
-  induction r with
-  | emptyset => simp at hn
+theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
+  (∃ hr : r.nullable, r.extract hr = Γ) ↔ POSIX [] r Γ := by
+  induction r generalizing Γ with
+  | emptyset => exact ⟨nofun, nofun⟩
   | epsilon =>
-    simp [extract, extract']
-  | char _ => simp at hn
-  | plus r₁ r₂ ih₁ ih₂ =>
-    simp at hn
-    simp [extract, mkeps]
-    split_ifs with hn₁
-    · simp [extract']
-      rw [ih₁ hn₁]
-    · simp [extract']
-      rw [ih₂ (Or.resolve_left hn hn₁)]
-  | mul r₁ r₂ ih₁ ih₂ =>
-    simp at hn
-    simp [extract, mkeps, extract']
-    rw [ih₁ hn.left, ih₂ hn.right]
-  | star r ih =>
-    simp [extract, mkeps, extract']
-  | group n k r ih =>
-    simp at hn
-    simp [extract, mkeps, extract']
-    rw [ih hn]
-    simp only [and_true]
-    exact mkeps_flat hn
-
-theorem extract_markEmpty {r : Regex α} {v : Value α} (hv : Inhab v r.markEmpty) :
-  r.markEmpty.extract' ⟨v, hv⟩ = r.extract' ⟨v, inhab_markEmpty hv⟩ := by
-  match r with
-  | emptyset => nomatch hv
-  | epsilon =>
-    simp [markEmpty]
-  | char c => nomatch hv
-  | plus r₁ r₂ =>
-    cases hv with
-    | left hv =>
-      simp only [markEmpty, extract']
-      rw [extract_markEmpty hv]
-    | right hv =>
-      simp only [markEmpty, extract']
-      rw [extract_markEmpty hv]
-  | mul r₁ r₂ =>
-    cases hv with
-    | seq hv₁ hv₂ =>
-      simp only [markEmpty, extract']
-      rw [extract_markEmpty hv₁, extract_markEmpty hv₂]
-  | star r =>
-    cases hv with
-    | star_nil =>
-      simp only [markEmpty, extract']
-    | stars hv hvs =>
-      simp only [markEmpty, extract']
-      rw [extract_markEmpty hv]
-      rw [←markEmpty] at hvs
-      rw [←extract_markEmpty hvs]
+    simp [extract]
+    constructor
+    · intro h
+      subst h
+      exact POSIX.epsilon
+    · intro h
+      cases h
       rfl
-  | group n s r =>
-    simp only [markEmpty, extract']
-    rw [extract_markEmpty]
+  | char c => exact ⟨nofun, nofun⟩
+  | plus r₁ r₂ ih₁ ih₂ =>
+    simp [extract]
+    split_ifs with hr₁
+    · constructor
+      · intro ⟨hr, h⟩
+        exact POSIX.left (ih₁.mp ⟨hr₁, h⟩)
+      · intro h
+        cases h with
+        | left h =>
+          rw [←ih₁] at h
+          rcases h with ⟨_, h⟩
+          exact ⟨Or.inl hr₁, h⟩
+        | right h hn =>
+          rw [nullable_iff_matches_nil] at hr₁
+          exact absurd hr₁ hn
+    · constructor
+      · intro ⟨hr, h⟩
+        refine POSIX.right (ih₂.mp ⟨Or.resolve_left hr hr₁, h⟩) ?_
+        rw [nullable_iff_matches_nil] at hr₁
+        exact hr₁
+      · intro h
+        cases h with
+        | left h =>
+          rw [nullable_iff_matches_nil] at hr₁
+          exact absurd (POSIX.matches h) hr₁
+        | right h hn =>
+          rw [←ih₂] at h
+          rcases h with ⟨hr₂, h⟩
+          exact ⟨Or.inr hr₂, h⟩
+  | mul r₁ r₂ ih₁ ih₂ =>
+    simp [extract]
+    constructor
+    · intro ⟨hr, h⟩
+      rw [←h]
+      rw [←List.nil_append []]
+      apply POSIX.mul rfl rfl
+      simp [←ih₁, hr.left]
+      simp [←ih₂, hr.right]
+      simp_all
+    · intro h
+      cases h with
+      | mul hs hg h₁ h₂ hn =>
+        simp at hs
+        rw [hs.left, ←ih₁] at h₁
+        rcases h₁ with ⟨hr₁, h₁⟩
+        rw [hs.right, ←ih₂] at h₂
+        rcases h₂ with ⟨hr₂, h₂⟩
+        simp [h₁, h₂, hr₁, hr₂]
+        exact hg
+  | star r ih =>
+    simp [extract]
+    constructor
+    · intro h
+      subst h
+      exact POSIX.star_nil
+    · intro h
+      cases h with
+      | star_nil => rfl
+      | stars hs hg h₁ h₂ hs₁ hn =>
+        simp at hs
+        exact absurd hs.left hs₁
+  | group n s r ih =>
+    simp [extract]
+    constructor
+    · intro ⟨hr, h⟩
+      rw [←List.append_nil s] at h
+      subst h
+      apply POSIX.group
+      simp [←ih, hr]
+    · intro h
+      cases h with
+      | group h =>
+        simp [ih]
+        exact h
 
 variable [DecidableEq α]
 
-theorem extract_deriv (r : Regex α) (x : α) (v : Value α) (hv : Inhab v (r.deriv x)) :
-  (r.deriv x).extract' ⟨v, hv⟩ = r.extract' (inj r x ⟨v, hv⟩) := by
-  induction r generalizing v with
-  | emptyset => nomatch hv
-  | epsilon => nomatch hv
-  | char c =>
-    simp only [inj, extract']
-    generalize hr : (char c).deriv x = r' at hv
-    rw [deriv] at hr
-    split_ifs at hr
-    · subst hr
-      rw [extract']
-    · subst hr
-      nomatch hv
+theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} :
+  POSIX (c::s) r Γ ↔ POSIX s (r.deriv c) Γ := by
+  induction r generalizing s Γ with
+  | emptyset =>
+    exact ⟨nofun, nofun⟩
+  | epsilon =>
+    exact ⟨nofun, nofun⟩
+  | char d =>
+    constructor
+    · intro h
+      cases h
+      simp
+      exact POSIX.epsilon
+    · intro h
+      simp at h
+      split_ifs at h with hc
+      · cases h
+        cases hc
+        exact POSIX.char c
+      · nomatch h
   | plus r₁ r₂ ih₁ ih₂ =>
-    cases hv with
-    | left hv =>
-      simp [extract', inj]
-      rw [ih₁]
-    | right hv =>
-      simp [extract', inj]
-      rw [ih₂]
+    constructor
+    · intro h
+      cases h with
+      | left h =>
+        rw [ih₁] at h
+        exact POSIX.left h
+      | right h hn =>
+        rw [ih₂] at h
+        rw [Matches_deriv] at hn
+        exact POSIX.right h hn
+    · intro h
+      cases h with
+      | left h =>
+        rw [←ih₁] at h
+        exact POSIX.left h
+      | right h hn =>
+        rw [←ih₂] at h
+        rw [←Matches_deriv] at hn
+        exact POSIX.right h hn
   | mul r₁ r₂ ih₁ ih₂ =>
-    simp only [inj]
-    split_ifs with hn
-    · split
-      · rw [extract', ←ih₁]
-        generalize_proofs
-        generalize hr : (r₁.mul r₂).deriv x = r' at hv
-        simp [deriv, hn] at hr
-        subst hr
-        rw [extract', extract']
-      · rw [extract', ←ih₂]
-        generalize_proofs
-        generalize hr : (r₁.mul r₂).deriv x = r' at hv
-        simp [deriv, hn] at hr
-        subst hr
-        rw [extract', extract']
-        rw [extract_markEmpty]
-    · split
-      rw [extract', ←ih₁]
-      generalize_proofs
-      generalize hr : (r₁.mul r₂).deriv x = r' at hv
-      simp [deriv, hn] at hr
-      subst hr
-      rw [extract']
+    constructor
+    · intro h
+      cases h with
+      | mul hcs hg h₁ h₂ hn =>
+        rename_i s₁ _ _ _
+        simp [deriv]
+        split_ifs with hr
+        · cases s₁ with
+          | nil =>
+            simp at hcs
+            cases hcs
+            rw [ih₂] at h₂
+            rw [←POSIX_nil_markEmpty] at h₁
+            apply POSIX.right
+            rw [←List.nil_append s]
+            apply POSIX.mul rfl hg
+            exact h₁
+            exact h₂
+            simp
+            intro x hx _ _ hr₁
+            apply markEmpty_matches_nil at hr₁
+            exact absurd hr₁ hx
+            intro hn'
+            cases hn' with
+            | @mul s₁ s₂ _ _ _ hs h₁' h₂' =>
+              rw [←Matches_deriv] at h₁'
+              cases hs
+              simp_all
+              exact absurd h₂' (hn (c::s₁) (by simp) s₂ (by simp) h₁')
+          | cons x xs =>
+            simp at hcs
+            cases hcs.left
+            rw [ih₁] at h₁
+            apply POSIX.left
+            rw [←hcs.right]
+            simp_rw [List.cons_append, Matches_deriv] at hn
+            exact POSIX.mul rfl hg h₁ h₂ hn
+        · cases s₁ with
+          | nil =>
+            rw [nullable_iff_matches_nil] at hr
+            exact absurd (POSIX.matches h₁) hr
+          | cons x xs =>
+            simp at hcs
+            cases hcs.left
+            cases hcs.right
+            rw [ih₁] at h₁
+            simp_rw [List.cons_append, Matches_deriv] at hn
+            exact POSIX.mul rfl hg h₁ h₂ hn
+    · intro h
+      simp at h
+      split_ifs at h with hr
+      · cases h with
+        | left h =>
+          cases h with
+          | mul hs hg h₁ h₂ hn =>
+            rw [←ih₁] at h₁
+            simp_rw [←Matches_deriv, ←List.cons_append] at hn
+            rw [←hs, ←List.cons_append]
+            exact POSIX.mul rfl hg h₁ h₂ hn
+        | right h hr₁ =>
+          cases h with
+          | mul hs hg h₁ h₂ hn =>
+            subst hs
+            rw [←ih₂] at h₂
+            cases (POSIX_markEmpty h₁)
+            rw [POSIX_nil_markEmpty] at h₁
+            simp
+            rw [←List.nil_append (c::_)]
+            refine POSIX.mul rfl hg h₁ h₂ ?_
+            simp at hr₁
+            simp
+            intro x₁ hx₁ x₂ hcs h₁' h₂'
+            cases x₁ with
+            | nil => contradiction
+            | cons y ys =>
+              simp at hcs
+              cases hcs.left
+              cases hcs.right
+              rw [Matches_deriv] at h₁'
+              exact absurd (Matches.mul rfl h₁' h₂') hr₁
+      · cases h with
+        | mul hs hg h₁ h₂ hn =>
+          subst hs
+          rw [←ih₁] at h₁
+          simp_rw [←Matches_deriv, ←List.cons_append] at hn
+          rw [←List.cons_append]
+          exact POSIX.mul rfl hg h₁ h₂ hn
   | star r ih =>
-    match v with
-    | Value.seq v (Value.stars vs) =>
-      simp [inj, extract']
-      rw [ih]
-  | group n s r ih =>
-    simp [deriv, inj, extract', ih]
-    rw [inj_flat]
+    constructor
+    · intro h
+      cases h with
+      | stars hcs hg h₁ h₂ hs₁ hn =>
+        rename_i s₁ _ _ _
+        cases s₁ with
+        | nil => nomatch hs₁
+        | cons x xs =>
+          simp at hcs
+          cases hcs.left
+          cases hcs.right
+          rw [ih] at h₁
+          simp_rw [List.cons_append, Matches_deriv] at hn
+          exact POSIX.mul rfl hg h₁ h₂ hn
+    · intro h
+      cases h with
+      | mul hs hg h₁ h₂ hn =>
+        subst hs
+        rw [←ih] at h₁
+        rw [←List.cons_append]
+        simp_rw [←Matches_deriv, ←List.cons_append] at hn
+        exact POSIX.stars rfl hg h₁ h₂ (by simp) hn
+  | group n cs r ih =>
+    constructor
+    · intro h
+      cases h with
+      | group h =>
+        simp
+        rw [ih] at h
+        rw [List.append_cons cs c s]
+        exact POSIX.group h
+    · intro h
+      cases h with
+      | group h =>
+        simp
+        rw [←ih] at h
+        exact POSIX.group h
 
-theorem captures_captures' (r : Regex α) (s : List α) :
-  r.captures s = r.captures' s := by
+theorem posix_derivs {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
+  POSIX s r Γ ↔ POSIX [] (r.derivs s) Γ := by
   induction s generalizing r with
-  | nil =>
-    rw [captures, captures']
-    split_ifs with hn
-    · exact extract_extract'_nil hn
-    · rfl
+  | nil => rfl
   | cons x xs ih =>
-    simp [captures, derivs]
-    split_ifs with hn
-    · have ih := ih (r.deriv x)
-      simp [captures, hn] at ih
-      rw [ih]
-      simp [captures', hn, injs]
-      rw [extract_deriv]
-    · simp [captures', hn]
+    rw [posix_deriv, ih]
+    rfl
 
-theorem parse_iff_matches (r : Regex α) (s : List α) :
-  (r.parse s).isSome ↔ r.Matches s := by
-  induction s generalizing r with
-  | nil =>
-    simp [parse]
-    exact nullable_iff_matches_nil
-  | cons x xs ih =>
-    rw [Matches_deriv, ←ih]
-    simp [parse]
+theorem captures_posix (r : Regex α) (s : List α) (Γ : SubmatchEnv α) :
+  r.captures s = some Γ ↔ POSIX s r Γ := by
+  simp [captures]
+  rw [posix_derivs, extract_nil_posix]
+
+theorem captures_iff_matches (r : Regex α) (s : List α) :
+  (r.captures s).isSome ↔ r.Matches s := by
+  simp [captures]
+  rw [Matches_derivs, nullable_iff_matches_nil]
