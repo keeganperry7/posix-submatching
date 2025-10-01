@@ -71,23 +71,7 @@ inductive Submatches : List α → Regex α → SubmatchEnv α → Prop
     Submatches s r Γ →
     Submatches s (group n cs r) ((n, cs ++ s) :: Γ)
 
-example :
-  Submatches
-    -- "aba"
-    ['a', 'b', 'a']
-    -- (₁a + b)*
-    (star (group 1 [] (plus (char 'a') (char 'b'))))
-    -- {1 ↦ "a", 1 ↦ "b", 1 ↦ "a"}
-    [(1, ['a']), (1, ['b']), (1, ['a'])] :=
-    Submatches.stars rfl rfl
-      (Submatches.group (Submatches.left Submatches.char))
-      (Submatches.stars rfl rfl
-        (Submatches.group (Submatches.right Submatches.char))
-        (Submatches.stars rfl rfl
-          (Submatches.group (Submatches.left Submatches.char))
-          (Submatches.star_nil)))
-
-theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h : Submatches s r Γ) :
+theorem Submatches.matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h : Submatches s r Γ) :
   r.Matches s := by
   induction h with
   | epsilon => exact Matches.epsilon
@@ -101,7 +85,7 @@ theorem Submatches_Matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} (h
     exact Matches.stars hs ih₁ ih₂
   | group h ih => exact Matches.group ih
 
-theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches r s) :
+theorem Matches.exists_submatches {r : Regex α} {s : List α} (h : Matches r s) :
   ∃ Γ, Submatches s r Γ := by
   induction h with
   | epsilon => exact ⟨[], Submatches.epsilon⟩
@@ -126,7 +110,7 @@ theorem Matches_Submatches {r : Regex α} {s : List α} (h : Matches r s) :
     rcases ih with ⟨Γ, ih⟩
     exact ⟨(n, cs ++ s) :: Γ, Submatches.group ih⟩
 
-theorem Matches_epsilon {s : List α} :
+theorem matches_epsilon_iff {s : List α} :
   Matches epsilon s ↔ s = [] := by
   constructor
   · intro h
@@ -136,7 +120,7 @@ theorem Matches_epsilon {s : List α} :
     rw [h]
     exact Matches.epsilon
 
-theorem Matches_char {c : α} {s : List α} :
+theorem matches_char_iff {c : α} {s : List α} :
   Matches (char c) s ↔ s = [c] := by
   constructor
   · intro h
@@ -146,7 +130,7 @@ theorem Matches_char {c : α} {s : List α} :
     rw [h]
     exact Matches.char
 
-theorem Matches_plus {s : List α} {r₁ r₂ : Regex α} :
+theorem matches_plus_iff {s : List α} {r₁ r₂ : Regex α} :
   Matches (r₁.plus r₂) s ↔ Matches r₁ s ∨ Matches r₂ s := by
   constructor
   · intro h
@@ -158,7 +142,7 @@ theorem Matches_plus {s : List α} {r₁ r₂ : Regex α} :
     | inl h => exact Matches.plus_left h
     | inr h => exact Matches.plus_right h
 
-theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
+theorem matches_mul_iff {s : List α} {r₁ r₂ : Regex α} :
   Matches (r₁.mul r₂) s ↔ ∃ s₁ s₂, s₁ ++ s₂ = s ∧ Matches r₁ s₁ ∧ Matches r₂ s₂ := by
   constructor
   · intro h
@@ -167,19 +151,15 @@ theorem Matches_mul {s : List α} {r₁ r₂ : Regex α} :
   · intro ⟨_, _, hs, h₁, h₂⟩
     exact Matches.mul hs h₁ h₂
 
-theorem Matches_star {s : List α} {r : Regex α} :
+theorem matches_star_iff {s : List α} {r : Regex α} :
   Matches r.star s ↔ s = [] ∨ (∃ s₁ s₂, s₁ ≠ [] ∧ s₁ ++ s₂ = s ∧ Matches r s₁ ∧ Matches r.star s₂) := by
   generalize hr : r.star = r'
   constructor
   · intro h
-    induction h with
-    | epsilon => nomatch hr
-    | char => nomatch hr
-    | plus_left => nomatch hr
-    | plus_right => nomatch hr
-    | mul => nomatch hr
-    | star_nil => exact Or.inl rfl
-    | @stars s₁ s₂ s _ hs' h₁ h₂ ih₁ ih₂ =>
+    induction h
+    any_goals contradiction
+    · exact Or.inl rfl
+    · case stars s₁ s₂ s _ hs' h₁ h₂ ih₁ ih₂ =>
       simp at hr
       subst hr
       cases s₁ with
@@ -189,7 +169,6 @@ theorem Matches_star {s : List α} {r : Regex α} :
         exact ih₂ rfl
       | cons x xs =>
         exact Or.inr ⟨x::xs, s₂, by simp, hs', h₁, h₂⟩
-    | group => nomatch hr
   · intro h
     subst hr
     match h with
@@ -199,7 +178,7 @@ theorem Matches_star {s : List α} {r : Regex α} :
     | Or.inr ⟨s₁, s₂, _, hs, h₁, h₂⟩ =>
       exact Matches.stars hs h₁ h₂
 
-theorem Matches_group {n : Nat} {s k : List α} {r : Regex α} :
+theorem matches_group_iff {n : Nat} {s k : List α} {r : Regex α} :
   Matches (group n k r) s ↔ Matches r s := by
   constructor
   · intro h
@@ -228,17 +207,17 @@ theorem nullable_iff_matches_nil {r : Regex α} :
   | char => exact ⟨nofun, nofun⟩
   | plus r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.or_eq_true]
-    rw [ih₁, ih₂, Matches_plus]
+    rw [ih₁, ih₂, matches_plus_iff]
   | mul r₁ r₂ ih₁ ih₂ =>
     simp only [nullable, Bool.and_eq_true]
-    rw [ih₁, ih₂, Matches_mul]
+    rw [ih₁, ih₂, matches_mul_iff]
     simp [and_assoc]
   | star r =>
     simp only [nullable, true_iff]
     exact Matches.star_nil
   | group _ _ h ih =>
     simp only [nullable]
-    rw [ih, Matches_group]
+    rw [ih, matches_group_iff]
 
 def markEmpty : Regex α → Regex α
   | emptyset => emptyset
@@ -287,7 +266,7 @@ theorem markEmpty_matches_nil {r : Regex α} {s : List α} :
       rw [←hs, List.append_eq_nil_iff]
       exact ⟨ih₁ h₁, ih₂ h₂⟩
   | star r ih =>
-    rw [markEmpty, Matches_star] at h
+    rw [markEmpty, matches_star_iff] at h
     match h with
     | Or.inl h => exact h
     | Or.inr ⟨s₁, s₂, hs₁, hs, h₁, h₂⟩ =>
@@ -311,13 +290,24 @@ def deriv : Regex α → α → Regex α
   | star r, c => (r.deriv c).mul r.star
   | group n s r, c => group n (s ++ [c]) (r.deriv c)
 
-theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
+theorem matches_deriv_mul_iff {r₁ r₂ : Regex α} {c : α} {s : List α} :
+  Matches ((r₁.mul r₂).deriv c) s ↔ Matches ((r₁.deriv c).mul r₂) s ∨
+  (r₁.nullable ∧ Matches (r₁.markEmpty.mul (r₂.deriv c)) s) := by
+  rw [deriv]
+  split
+  · case isTrue hn =>
+    rw [matches_plus_iff]
+    simp [hn]
+  · case isFalse hn =>
+    simp [hn]
+
+theorem Matches_deriv {r : Regex α} {c : α} {s : List α} :
   Matches r (c::s) ↔ Matches (r.deriv c) s := by
   induction r generalizing s with
   | emptyset => exact ⟨nofun, nofun⟩
   | epsilon => exact ⟨nofun, nofun⟩
   | char c =>
-    rw [Matches_char, deriv]
+    rw [matches_char_iff, deriv]
     rw [List.cons.injEq]
     constructor
     · intro ⟨hc, hs⟩
@@ -332,77 +322,49 @@ theorem Matches_deriv (r : Regex α) (c : α) (s : List α) :
       · nomatch h
   | plus r₁ r₂ ih₁ ih₂ =>
     rw [deriv]
-    rw [Matches_plus, Matches_plus]
+    rw [matches_plus_iff, matches_plus_iff]
     rw [ih₁, ih₂]
   | mul r₁ r₂ ih₁ ih₂ =>
-    rw [deriv]
-    split_ifs with hn
-    · rw [Matches_plus, Matches_mul, Matches_mul, Matches_mul]
-      constructor
-      · intro ⟨s₁, s₂, hs, h₁, h₂⟩
-        cases s₁ with
-        | nil =>
-          simp at hs
-          cases hs
-          refine Or.inr ⟨[], s, List.nil_append s, ?_, ?_⟩
-          rw [←nullable_iff_matches_nil, markEmpty_nullable]
-          exact hn
-          rw [ih₂] at h₂
-          exact h₂
-        | cons x xs =>
-          simp at hs
-          cases hs.left
-          refine Or.inl ⟨xs, s₂, hs.right, ?_, ?_⟩
-          rw [ih₁] at h₁
-          exact h₁
-          exact h₂
-      · intro h
-        match h with
-        | Or.inl ⟨s₁, s₂, hs, h₁, h₂⟩ =>
-          rw [←ih₁] at h₁
-          exact ⟨c::s₁, s₂, by simp [hs], h₁, h₂⟩
-        | Or.inr ⟨s₁, s₂, hs, h₁, h₂⟩ =>
-          rw [nullable_iff_matches_nil] at hn
-          rw [←ih₂] at h₂
-          cases (markEmpty_matches_nil h₁)
-          simp at hs
-          refine ⟨[], c::s₂, by simp [hs], hn, h₂⟩
-    · rw [Matches_mul, Matches_mul]
-      simp_rw [←ih₁]
-      constructor
-      · intro ⟨s₁, s₂, hs, h₁, h₂⟩
-        cases s₁ with
-        | nil =>
-          rw [nullable_iff_matches_nil] at hn
-          exact absurd h₁ hn
-        | cons x xs =>
-          simp at hs
-          cases hs.left
-          exact ⟨xs, s₂, hs.right, h₁, h₂⟩
-      · intro ⟨s₁, s₂, hs, h₁, h₂⟩
-        exact ⟨c::s₁, s₂, by simp [hs], h₁, h₂⟩
-  | star r ih =>
-    rw [deriv]
+    rw [matches_deriv_mul_iff]
+    repeat rw [matches_mul_iff]
     constructor
+    · intro ⟨s₁, s₂, hs, h₁, h₂⟩
+      rw [List.append_eq_cons_iff] at hs
+      match hs with
+      | Or.inl ⟨hs₁, hs₂⟩ =>
+        subst hs₁ hs₂
+        rw [←nullable_iff_matches_nil] at h₁
+        rw [←markEmpty_nullable, nullable_iff_matches_nil] at h₁
+        rw [←markEmpty_nullable, nullable_iff_matches_nil]
+        exact Or.inr ⟨h₁, [], s, rfl, h₁, ih₂.mp h₂⟩
+      | Or.inr ⟨as, hs₁, hs⟩ =>
+        rw [hs₁, ih₁] at h₁
+        exact Or.inl ⟨as, s₂, hs.symm, h₁, h₂⟩
     · intro h
-      rw [Matches_star] at h
-      simp at h
-      rcases h with ⟨s₁, hs₁, s₂, hs, h₁, h₂⟩
+      match h with
+      | Or.inl ⟨s₁, s₂, hs, h₁, h₂⟩ =>
+        exact ⟨c::s₁, s₂, by simp [hs], ih₁.mpr h₁, h₂⟩
+      | Or.inr ⟨hn, s₁, s₂, hs, h₁, h₂⟩ =>
+        rw [nullable_iff_matches_nil] at hn
+        rw [markEmpty_matches_nil h₁] at hs
+        subst hs
+        exact ⟨[], c::s₂, rfl, hn, ih₂.mpr h₂⟩
+  | star r ih =>
+    rw [deriv, matches_star_iff, matches_mul_iff]
+    simp [←ih]
+    constructor
+    · intro ⟨s₁, hs₁, s₂, hs, h₁, h₂⟩
       cases s₁ with
       | nil => contradiction
       | cons x xs =>
         simp at hs
-        rw [hs.left, ih] at h₁
-        exact Matches.mul hs.right h₁ h₂
-    · intro h
-      cases h with
-      | mul hs h₁ h₂ =>
-        rw [←ih] at h₁
-        rw [←hs, ←List.cons_append]
-        exact Matches.stars rfl h₁ h₂
+        rw [hs.left] at h₁
+        exact ⟨xs, s₂, hs.right, h₁, h₂⟩
+    · intro ⟨s₁, s₂, hs, h₁, h₂⟩
+      exact ⟨c::s₁, by simp, s₂, by simp [hs], h₁, h₂⟩
   | group n k r ih =>
-    rw [deriv, Matches_group, Matches_group]
-    exact ih s
+    rw [deriv, matches_group_iff, matches_group_iff]
+    exact ih
 
 @[simp]
 def derivs : Regex α → List α → Regex α
