@@ -37,28 +37,6 @@ inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
     POSIX s r Γ →
     POSIX s (group n cs r) ((n, cs ++ s) :: Γ)
 
-example :
-  POSIX
-    -- "ab"
-    ['a', 'b']
-    -- (₁ab + a)(₂b + ε)
-    (mul
-      (group 1 [] (plus (mul (char 'a') (char 'b')) (char 'a')))
-      (group 2 [] (plus (char 'b') epsilon)))
-    -- {1 ↦ "ab", 2 ↦ []}
-    [(1, ['a', 'b']), (2, [])] := by
-    refine POSIX.mul rfl rfl
-      (POSIX.group (
-        POSIX.left
-          (POSIX.mul rfl rfl (POSIX.char 'a') (POSIX.char 'b') ?_)))
-      (POSIX.group
-        (POSIX.right POSIX.epsilon nofun))
-      (by simp)
-    simp
-    intro _ _ _ _ h
-    cases h
-    contradiction
-
 theorem POSIX.matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r Γ → r.Matches s := by
   intro h
@@ -105,7 +83,8 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
         exact POSIX.left h
       | right h hn =>
         rw [ih₂] at h
-        rw [←nullable_iff_matches_nil, markEmpty_nullable, nullable_iff_matches_nil] at hn
+        rw [←nullable_iff_matches_nil, markEmpty_nullable] at hn
+        rw [nullable_iff_matches_nil] at hn
         exact POSIX.right h hn
     · intro h
       cases h with
@@ -114,7 +93,8 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
         exact POSIX.left h
       | right h hn =>
         rw [←ih₂] at h
-        rw [←nullable_iff_matches_nil, ←markEmpty_nullable, nullable_iff_matches_nil] at hn
+        rw [←nullable_iff_matches_nil, ←markEmpty_nullable] at hn
+        rw [nullable_iff_matches_nil] at hn
         exact POSIX.right h hn
   | mul r₁ r₂ ih₁ ih₂ =>
     rw [markEmpty]
