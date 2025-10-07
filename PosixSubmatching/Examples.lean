@@ -22,3 +22,9 @@ def r₃ : Regex Char := (group 0 [] (plus 'a' (mul 'a' 'b'))).mul (group 1 [] (
 #guard r₃.captures "ab".toList = some [(0, ['a', 'b']), (1, [])]
 #guard r₃.captures "abb".toList = some [(0, ['a', 'b']), (1, ['b'])]
 #guard r₃.captures "a".toList = some [(0, ['a']), (1, [])]
+
+#guard (captures (group 1 [] (not (char 'b'))) "a".toList) = Option.some  [(1, "a".toList)]
+
+#guard (captures (group 1 [] (not (mul (char 'a') (char 'b')))) "abc".toList) = Option.some [(1, "abc".toList)]
+
+#guard captures (group 1 [] (not (not (char 'b')))) "b".toList = Option.some [(1, "b".toList)]
