@@ -132,6 +132,11 @@ theorem Matches_iff_exists_Submatches {r : Regex α} {s : List α} :
     · intro ⟨Γ, Γ', hΓ, h⟩
       exact ⟨Γ', h⟩
 
+theorem matches_mul {s₁ s₂ : List α} {r₁ r₂ : Regex α} (h₁ : r₁.Matches s₁) (h₂ : r₂.Matches s₂) :
+  Matches (r₁.mul r₂) (s₁ ++ s₂) := by
+  rw [Matches]
+  exact ⟨s₁, s₂, rfl, h₁, h₂⟩
+
 theorem matches_epsilon_iff {s : List α} :
   Matches epsilon s ↔ s = [] := by
   rw [Matches]

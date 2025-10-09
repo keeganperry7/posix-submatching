@@ -23,6 +23,11 @@ inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
     POSIX s₂ r₂ Γ₂ →
     ¬(∃ s₃ s₄, s₃ ≠ [] ∧ s₃ ++ s₄ = s₂ ∧ r₁.Matches (s₁ ++ s₃) ∧ r₂.Matches s₄) →
     POSIX s (mul r₁ r₂) Γ
+  | and {r₁ r₂ : Regex α} {s : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
+    Γ₁ ++ Γ₂ = Γ →
+    POSIX s r₁ Γ₁ →
+    POSIX s r₂ Γ₂ →
+    POSIX s (and r₁ r₂) Γ
   | star_nil {r : Regex α} :
     POSIX [] r.star []
   | stars {r : Regex α} {s s₁ s₂ : List α} {Γ Γ₁ Γ₂ : SubmatchEnv α} :
@@ -33,6 +38,9 @@ inductive POSIX : List α → Regex α → SubmatchEnv α → Prop
     s₁ ≠ [] →
     ¬(∃ s₃ s₄, s₃ ≠ [] ∧ s₃ ++ s₄ = s₂ ∧ r.Matches (s₁ ++ s₃) ∧ (star r).Matches s₄) →
     POSIX s (star r) Γ
+  | not {r : Regex α} {s : List α} :
+    ¬r.Matches s →
+    POSIX s (not r) []
   | group {n : Nat} {s cs : List α} {r : Regex α} {Γ : SubmatchEnv α} :
     POSIX s r Γ →
     POSIX s (group n cs r) ((n, cs ++ s) :: Γ)
@@ -41,27 +49,75 @@ theorem POSIX.matches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r Γ → r.Matches s := by
   intro h
   induction h with
-  | epsilon => exact Matches.epsilon
-  | char c => exact Matches.char
-  | left h ih => exact Matches.plus_left ih
-  | right h hn ih => exact Matches.plus_right ih
-  | mul hs _ h₁ h₂ hn ih₁ ih₂ => exact Matches.mul hs ih₁ ih₂
-  | star_nil => exact Matches.star_nil
-  | stars hs _ h₁ h₂ hv hn ih₁ ih₂ => exact Matches.stars hs ih₁ ih₂
-  | group h ih => exact Matches.group ih
+  | epsilon =>
+    rw [Matches]
+  | char c =>
+    rw [Matches]
+  | left h ih =>
+    rw [Matches]
+    exact Or.inl ih
+  | right h hn ih =>
+    rw [Matches]
+    exact Or.inr ih
+  | mul hs _ h₁ h₂ hn ih₁ ih₂ =>
+    rw [Matches]
+    exact ⟨_, _, hs, ih₁, ih₂⟩
+  | and _ h₁ h₂ ih₁ ih₂ =>
+    rw [Matches]
+    exact ⟨ih₁, ih₂⟩
+  | star_nil =>
+    rw [Matches]
+    exact ⟨[], by simp⟩
+  | stars hs _ h₁ h₂ hv hn ih₁ ih₂ =>
+    rw [matches_star_iff]
+    exact Or.inr ⟨_, _, hv, hs, ih₁, ih₂⟩
+  | not h =>
+    rw [Matches]
+    exact h
+  | group h ih =>
+    rw [Matches]
+    exact ih
 
 theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
-  POSIX s r Γ → Submatches s r Γ := by
+  POSIX s r Γ → Submatches r s Γ := by
   intro h
   induction h with
-  | epsilon => exact Submatches.epsilon
-  | char c => exact Submatches.char
-  | left h ih => exact Submatches.left ih
-  | right h hn ih => exact Submatches.right ih
-  | mul hs hg h₁ h₂ hn ih₁ ih₂ => exact Submatches.mul hs hg ih₁ ih₂
-  | star_nil => exact Submatches.star_nil
-  | stars hs hg h₁ h₂ hv hn ih₁ ih₂ => exact Submatches.stars hs hg ih₁ ih₂
-  | group h ih => exact Submatches.group ih
+  | epsilon =>
+    simp [Submatches]
+  | char c =>
+    simp [Submatches]
+  | left h ih =>
+    rw [Submatches]
+    exact Or.inl ih
+  | right h hn ih =>
+    rw [Submatches]
+    exact Or.inr ih
+  | mul hs hg h₁ h₂ hn ih₁ ih₂ =>
+    rw [Submatches]
+    exact ⟨_, _, _, _, hs, hg, ih₁, ih₂⟩
+  | and hg h₁ h₂ ih₁ ih₂ =>
+    rw [Submatches]
+    exact ⟨_, _, hg, ih₁, ih₂⟩
+  | star_nil =>
+    rw [Submatches]
+    exact ⟨[], by simp⟩
+  | @stars _ s s₁ s₂ Γ Γ₁ Γ₂ hs hg h₁ h₂ hv hn ih₁ ih₂ =>
+    rw [Submatches] at *
+    rcases ih₂ with ⟨L, hs₂, hΓ₂, ih₂⟩
+    subst hs hg
+    refine ⟨(s₁, Γ₁) :: L, by simp [hs₂], by simp [hΓ₂], ?_⟩
+    simp at ih₂
+    simp [ih₁]
+    exact ih₂
+  | not h =>
+    simp [Matches_iff_exists_Submatches] at h
+    rw [Submatches]
+    simp
+    intro Γ' h'
+    exact absurd h' (h Γ')
+  | group h ih =>
+    simp [Submatches]
+    exact ih
 
 theorem POSIX_markEmpty {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   POSIX s r.markEmpty Γ → s = [] := by
@@ -117,6 +173,21 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
         rw [←ih₁] at h₁
         rw [←ih₂] at h₂
         exact POSIX.mul rfl hg h₁ h₂ (by simp_all)
+  | and r₁ r₂ ih₁ ih₂ =>
+    rw [markEmpty]
+    constructor
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [ih₁] at h₁
+        rw [ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rw [←ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
   | star r =>
     rw [markEmpty]
     constructor
@@ -132,6 +203,26 @@ theorem POSIX_nil_markEmpty {r : Regex α} {Γ : SubmatchEnv α} :
       | stars hs _ _ _ hs₁ =>
         simp at hs
         exact absurd hs.left hs₁
+  | not r ih =>
+    rw [markEmpty]
+    split
+    · case isTrue hn =>
+      constructor
+      · nofun
+      · intro h
+        cases h with
+        | not h =>
+          rw [nullable_iff_matches_nil] at hn
+          exact absurd hn h
+    · case isFalse hn =>
+      constructor
+      · intro h
+        rw [nullable_iff_matches_nil] at hn
+        cases h
+        exact POSIX.not hn
+      · intro h
+        cases h
+        exact POSIX.epsilon
   | group n s r ih =>
     rw [markEmpty]
     constructor
@@ -202,6 +293,11 @@ theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
       cases hs'.right
       rw [←hg, ←hg']
       rw [ih₁ h₂₁, ih₂ h₂₂]
+  | and hg₁ h₁₁ h₁₂ ih₁ ih₂ =>
+    cases h₂ with
+    | and hg₂ h₂₁ h₂₂ =>
+      subst hg₁ hg₂
+      rw [ih₁ h₂₁, ih₂ h₂₂]
   | star_nil =>
     cases h₂ with
     | star_nil => rfl
@@ -225,6 +321,9 @@ theorem POSIX.unique {r : Regex α} {s : List α} {Γ₁ Γ₂ : SubmatchEnv α}
       cases hs'.right
       rw [←hg, ←hg']
       rw [ih₁ h₂₁, ih₂ h₂₂]
+  | not h₁ =>
+    cases h₂
+    rfl
   | group h₁ ih =>
     cases h₂ with
     | group h₂ => simp [ih h₂]

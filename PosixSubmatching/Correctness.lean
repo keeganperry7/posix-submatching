@@ -72,6 +72,23 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
         rcases h₂ with ⟨hr₂, h₂⟩
         simp [h₁, h₂, hr₁, hr₂]
         exact hg
+  | and r₁ r₂ ih₁ ih₂ =>
+    simp [extract]
+    constructor
+    · intro ⟨hr, h⟩
+      rw [←h]
+      apply POSIX.and rfl
+      simp [←ih₁, hr.left]
+      simp [←ih₂, hr.right]
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rcases h₁ with ⟨hr₁, h₁⟩
+        rw [←ih₂] at h₂
+        rcases h₂ with ⟨hr₂, h₂⟩
+        simp [h₁, h₂, hr₁, hr₂]
+        exact hg
   | star r ih =>
     simp [extract]
     constructor
@@ -84,6 +101,19 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
       | stars hs hg h₁ h₂ hs₁ hn =>
         simp at hs
         exact absurd hs.left hs₁
+  | not r ih =>
+    simp [extract]
+    constructor
+    · intro ⟨hr, h⟩
+      subst h
+      apply POSIX.not
+      simp [←nullable_iff_matches_nil]
+      exact hr
+    · intro h
+      cases h with
+      | not hn =>
+        rw [←nullable_iff_matches_nil] at hn
+        simp [hn]
   | group n s r ih =>
     simp [extract]
     constructor
@@ -164,12 +194,12 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
             apply markEmpty_matches_nil at hr₁
             exact absurd hr₁ hx
             intro hn'
-            cases hn' with
-            | @mul s₁ s₂ _ _ _ hs h₁' h₂' =>
-              rw [←Matches_deriv] at h₁'
-              cases hs
-              simp_all
-              exact absurd h₂' (hn (c::s₁) (by simp) s₂ (by simp) h₁')
+            rw [Matches] at hn'
+            rcases hn' with ⟨s₁, s₂, hs, h₁', h₂'⟩
+            rw [←Matches_deriv] at h₁'
+            cases hs
+            simp_all
+            exact absurd h₂' (hn (c::s₁) (by simp) s₂ (by simp) h₁')
           | cons x xs =>
             simp at hcs
             cases hcs.left
@@ -220,7 +250,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
               cases hcs.left
               cases hcs.right
               rw [Matches_deriv] at h₁'
-              exact absurd (Matches.mul rfl h₁' h₂') hr₁
+              exact absurd (matches_mul h₁' h₂') hr₁
       · cases h with
         | mul hs hg h₁ h₂ hn =>
           subst hs
@@ -228,6 +258,20 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
           simp_rw [←Matches_deriv, ←List.cons_append] at hn
           rw [←List.cons_append]
           exact POSIX.mul rfl hg h₁ h₂ hn
+  | and r₁ r₂ ih₁ ih₂ =>
+    constructor
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [ih₁] at h₁
+        rw [ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
+    · intro h
+      cases h with
+      | and hg h₁ h₂ =>
+        rw [←ih₁] at h₁
+        rw [←ih₂] at h₂
+        exact POSIX.and hg h₁ h₂
   | star r ih =>
     constructor
     · intro h
@@ -251,6 +295,18 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
         rw [←List.cons_append]
         simp_rw [←Matches_deriv, ←List.cons_append] at hn
         exact POSIX.stars rfl hg h₁ h₂ (by simp) hn
+  | not r ih =>
+    constructor
+    · intro h
+      cases h with
+      | not hn =>
+        rw [Matches_deriv] at hn
+        exact POSIX.not hn
+    · intro h
+      cases h with
+      | not hn =>
+        rw [←Matches_deriv] at hn
+        exact POSIX.not hn
   | group n cs r ih =>
     constructor
     · intro h
