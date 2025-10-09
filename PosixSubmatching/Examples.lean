@@ -28,3 +28,43 @@ def r₃ : Regex Char := (group 0 [] (plus 'a' (mul 'a' 'b'))).mul (group 1 [] (
 #guard (captures (group 1 [] (not (mul (char 'a') (char 'b')))) "abc".toList) = Option.some [(1, "abc".toList)]
 
 #guard captures (group 1 [] (not (not (char 'b')))) "b".toList = Option.some [(1, "b".toList)]
+
+#guard captures
+  (group 1 [] (and (char 'b') (char 'b')))
+  "b".toList
+  = Option.some [(1, "b".toList)]
+
+#guard captures
+  (group 1 [] (and (not (char 'a')) (char 'b')))
+  "b".toList
+  = Option.some [(1, "b".toList)]
+
+#guard captures
+  (group 1 [] (and (not (char 'a')) (not (char 'c'))))
+  "b".toList
+  = Option.some [(1, "b".toList)]
+
+#guard captures
+  (group 1 [] (and (not (char 'a')) (not (char 'c'))))
+  "bb".toList
+  = Option.some [(1, "bb".toList)]
+
+#guard captures
+  (and (group 1 [] (not (char 'a'))) (not (char 'c')))
+  "bb".toList
+  = Option.some [(1, "bb".toList)]
+
+#guard captures
+  (and (group 1 [] (not (char 'a'))) (star (char 'b')))
+  "bb".toList
+  = Option.some [(1, "bb".toList)]
+
+#guard captures
+  (and (group 1 [] (not (char 'a'))) (star (char 'c')))
+  "bb".toList
+  = Option.none
+
+#guard captures
+  (group 1 [] (and (not (char 'a')) (star (char 'c'))))
+  "bb".toList
+  = Option.none
