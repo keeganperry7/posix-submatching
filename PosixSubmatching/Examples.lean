@@ -23,6 +23,33 @@ def r₃ : Regex Char := (group 0 [] (plus 'a' (mul 'a' 'b'))).mul (group 1 [] (
 #guard r₃.captures "abb".toList = some [(0, ['a', 'b']), (1, ['b'])]
 #guard r₃.captures "a".toList = some [(0, ['a']), (1, [])]
 
+def r₄ : Regex Char := not (group 1 [] (char 'a'))
+#eval r₄.captures' "bb".toList
+#eval r₄.captures'' "bb".toList
+
+def r₅ : Regex Char := not (mul (group 1 [] (char 'a')) (group 2 [] (char 'b')))
+#eval r₅.derivs "abc".toList
+#eval r₅.captures' "abc".toList
+#eval r₅.captures'' "abc".toList
+
+def r₆ : Regex Char := not (not (group 1 [] (char 'a')))
+#eval r₆.derivs "a".toList
+#eval r₆.captures' "a".toList
+#eval r₆.captures'' "a".toList
+
+def r₇ : Regex Char := not (plus (not (group 1 [] (char 'a'))) (not (group 2 [] (char 'a'))))
+#eval r₇.derivs "a".toList
+#eval r₇.captures' "a".toList
+#eval r₇.captures'' "a".toList
+
+def r₈ : Regex Char := not (and (group 1 [] (mul (char 'a') (char 'b'))) (group 2 [] (char 'a')))
+#eval r₈.captures' "ab".toList
+#eval r₈.captures'' "ab".toList
+
+def r₉ : Regex Char := not (mul (group 1 [] (char 'a')) (mul (group 2 [] (char 'b')) (group 3 [] (char 'c'))))
+#eval r₉.captures'' "abcd".toList
+
+
 #guard (captures (group 1 [] (not (char 'b'))) "a".toList) = Option.some  [(1, "a".toList)]
 
 #guard (captures (group 1 [] (not (mul (char 'a') (char 'b')))) "abc".toList) = Option.some [(1, "abc".toList)]

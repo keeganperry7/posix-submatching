@@ -47,7 +47,7 @@ def Submatches : Regex α → List α → SubmatchEnv α → Prop
   | and r₁ r₂, s, Γ =>
     ∃ Γ₁ Γ₂, Γ₁ ++ Γ₂ = Γ ∧ r₁.Submatches s Γ₁ ∧ r₂.Submatches s Γ₂
   | star r, s, Γ => ∃ L : List (List α × SubmatchEnv α), L.flatMap Prod.fst = s ∧ L.flatMap Prod.snd = Γ ∧ ∀ x ∈ L, r.Submatches x.fst x.snd
-  | not r, s, Γ => Γ = [] ∧ ∀ Γ', ¬r.Submatches s Γ'
+  | not r, s, Γ => ∀ Γ', ¬r.Submatches s Γ'
   | group n cs r, s, Γ => ∃ Γ', (n, cs ++ s) :: Γ' = Γ ∧ r.Submatches s Γ'
 termination_by r s => (r, s.length)
 
@@ -441,6 +441,56 @@ theorem Matches_derivs {r : Regex α} {s : List α} :
     rw [Matches_deriv, ih]
     rfl
 
+mutual
+def extract_null : (r : Regex α) → r.nullable → SubmatchEnv α
+  | epsilon, _ => []
+  | plus r₁ r₂, hr =>
+    if hr₁ : r₁.nullable
+    then extract_null r₁ hr₁
+    else
+      have hr₂ := (Bool.or_eq_true_iff.mp hr).resolve_left hr₁
+      extract_null r₂ hr₂
+  | mul r₁ r₂, hr =>
+    have hr₁ := Bool.and_elim_left hr
+    have hr₂ := Bool.and_elim_right hr
+    extract_null r₁ hr₁ ++ extract_null r₂ hr₂
+  | and r₁ r₂, hr =>
+    have hr₁ := Bool.and_elim_left hr
+    have hr₂ := Bool.and_elim_right hr
+    extract_null r₁ hr₁ ++ extract_null r₂ hr₂
+  | star _, _ => []
+  | not r, hr => by
+    rw [nullable, decide_not, not_decide_eq_true] at hr
+    exact r.extract_not_null hr
+  | group n s r, hr => ⟨n, s⟩ :: extract_null r hr
+
+def extract_not_null : (r : Regex α) → ¬r.nullable → SubmatchEnv α
+  | emptyset, _ => []
+  | char _, _ => []
+  -- ¬(r₁ ∨ r₂) ≈ ¬r₁ ∧ ¬r₂
+  | plus r₁ r₂, hr => by
+    rw [nullable, Bool.or_eq_true, not_or] at hr
+    exact r₁.extract_not_null hr.left ++ r₂.extract_not_null hr.right
+  -- ¬(r₁ ∧ r₂) ≈ ¬r₁ ∨ ¬r₂
+  | and r₁ r₂, hr => by
+    rw [nullable, Bool.and_eq_true, not_and] at hr
+    if hr₁ : r₁.nullable
+    then exact r₂.extract_not_null (hr hr₁)
+    else exact r₁.extract_not_null hr₁
+  -- ¬(r₁ · r₂) ≈ r₁ · ¬r₂ ∨ ¬r₁
+  | mul r₁ r₂, hr => by
+    rw [nullable, Bool.and_eq_true, not_and] at hr
+    if hr₁ : r₁.nullable
+    then exact r₁.extract_null hr₁ ++ r₂.extract_not_null (hr hr₁)
+    else exact r₁.extract_not_null hr₁
+  | not r, hr => by
+    simp at hr
+    exact r.extract_null hr
+  | group n s r, hr => by
+    rw [nullable] at hr
+    exact r.extract_not_null hr
+end
+
 def extract : (r : Regex α) → r.nullable → SubmatchEnv α
   | epsilon, _ => []
   | plus r₁ r₂, hr =>
@@ -461,7 +511,60 @@ def extract : (r : Regex α) → r.nullable → SubmatchEnv α
   | not _, _ => []
   | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
+
+-- not (group 1 (char a))
+-- "bb"
+-- {(1, "bb")}
+
+-- group 1 (not (char a))
+-- "bb"
+-- {(1, "bb")}
+
+-- not (group n r)
+-- s ∈ not (group n r) ↔ s ∉ r
+-- {(n, s)}
+
+-- not (mul (group 1 (char a)) (group 2 (char b)))
+-- "abc"
+-- {(1, "a")}
+
+
+def extractAll : Regex α → SubmatchEnv α
+  | emptyset => []
+  | epsilon => []
+  | char _ => []
+  | plus r₁ r₂ =>
+    if r₁.nullable
+      then r₁.extractAll
+      else r₂.extractAll
+  | mul r₁ r₂ =>
+    if r₁.nullable
+      then r₁.extractAll ++
+        if r₂.nullable
+        then r₂.extractAll
+        else []
+    else if r₂.nullable
+      then r₂.extractAll
+      else []
+  | and r₁ r₂ => r₁.extractAll ++ r₂.extractAll
+  | star _ => []
+  | not r => r.extractAll
+  | group n s r =>
+    if r.nullable
+    then ⟨n, s⟩ :: extractAll r
+    else extractAll r
+
 def captures : Regex α → List α → Option (SubmatchEnv α)
   | r, s =>
     let r' := r.derivs s
     if h : r'.nullable then some (extract r' h) else none
+
+def captures' : Regex α → List α → Option (SubmatchEnv α)
+  | r, s =>
+    let r' := r.derivs s
+    if r'.nullable then some (extractAll r') else none
+
+def captures'' : Regex α → List α → Option (SubmatchEnv α)
+  | r, s =>
+    let r' := r.derivs s
+    if h : r'.nullable then some (extract_null r' h) else none

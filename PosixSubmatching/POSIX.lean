@@ -112,9 +112,7 @@ theorem POSIX.submatches {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   | not h =>
     simp [Matches_iff_exists_Submatches] at h
     rw [Submatches]
-    simp
-    intro Γ' h'
-    exact absurd h' (h Γ')
+    exact h
   | group h ih =>
     simp [Submatches]
     exact ih
