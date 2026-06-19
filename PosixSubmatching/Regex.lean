@@ -1,7 +1,3 @@
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.SimpRw
-import Mathlib.Data.Bool.Basic
-
 universe u
 
 variable {α : Type u}
@@ -387,11 +383,11 @@ def extract : (r : Regex α) → r.nullable → SubmatchEnv α
     else
       have hr₂ := (Bool.or_eq_true_iff.mp hr).resolve_left hr₁
       extract r₂ hr₂
-  | mul r₁ r₂, hr => by
-    have hr₁ := Bool.and_elim_left hr
-    have hr₂ := Bool.and_elim_right hr
-    exact extract r₁ hr₁ ++ extract r₂ hr₂
-  | star r, _ => []
+  | mul r₁ r₂, hr =>
+    have hr₁ := (Bool.and_eq_true_iff.mp hr).left
+    have hr₂ := (Bool.and_eq_true_iff.mp hr).right
+    extract r₁ hr₁ ++ extract r₂ hr₂
+  | star _, _ => []
   | group n s r, hr => ⟨n, s⟩ :: extract r hr
 
 def captures : Regex α → List α → Option (SubmatchEnv α)

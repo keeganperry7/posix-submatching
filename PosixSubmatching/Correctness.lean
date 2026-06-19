@@ -1,7 +1,5 @@
 import PosixSubmatching.Regex
 import PosixSubmatching.POSIX
-import Mathlib.Tactic.GeneralizeProofs
-import Mathlib.Tactic.ApplyAt
 
 universe u
 
@@ -25,10 +23,11 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
   | char c => exact ⟨nofun, nofun⟩
   | plus r₁ r₂ ih₁ ih₂ =>
     simp [extract]
-    split_ifs with hr₁
-    · constructor
+    split
+    · rename_i hr₁
+      constructor
       · intro ⟨hr, h⟩
-        exact POSIX.left (ih₁.mp ⟨hr₁, h⟩)
+        exact POSIX.left (ih₁.mp ⟨_, h⟩)
       · intro h
         cases h with
         | left h =>
@@ -38,7 +37,8 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
         | right h hn =>
           rw [nullable_iff_matches_nil] at hr₁
           exact absurd hr₁ hn
-    · constructor
+    · rename_i hr₁
+      constructor
       · intro ⟨hr, h⟩
         refine POSIX.right (ih₂.mp ⟨Or.resolve_left hr hr₁, h⟩) ?_
         rw [nullable_iff_matches_nil] at hr₁
@@ -56,8 +56,7 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
     simp [extract]
     constructor
     · intro ⟨hr, h⟩
-      rw [←h]
-      rw [←List.nil_append []]
+      rw [←h, ←List.nil_append []]
       apply POSIX.mul rfl rfl
       simp [←ih₁, hr.left]
       simp [←ih₂, hr.right]
@@ -115,7 +114,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
       exact POSIX.epsilon
     · intro h
       simp at h
-      split_ifs at h with hc
+      split at h <;> rename_i hc
       · cases h
         cases hc
         exact POSIX.char c
@@ -147,7 +146,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
       | mul hcs hg h₁ h₂ hn =>
         rename_i s₁ _ _ _
         simp [deriv]
-        split_ifs with hr
+        split
         · cases s₁ with
           | nil =>
             simp at hcs
@@ -161,8 +160,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
             exact h₂
             simp
             intro x hx _ _ hr₁
-            apply markEmpty_matches_nil at hr₁
-            exact absurd hr₁ hx
+            exact absurd (markEmpty_matches_nil hr₁) hx
             intro hn'
             cases hn' with
             | @mul s₁ s₂ _ _ _ hs h₁' h₂' =>
@@ -176,9 +174,10 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
             rw [ih₁] at h₁
             apply POSIX.left
             rw [←hcs.right]
-            simp_rw [List.cons_append, Matches_deriv] at hn
+            simp only [List.cons_append, Matches_deriv] at hn
             exact POSIX.mul rfl hg h₁ h₂ hn
-        · cases s₁ with
+        · rename_i hr
+          cases s₁ with
           | nil =>
             rw [nullable_iff_matches_nil] at hr
             exact absurd (POSIX.matches h₁) hr
@@ -187,17 +186,17 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
             cases hcs.left
             cases hcs.right
             rw [ih₁] at h₁
-            simp_rw [List.cons_append, Matches_deriv] at hn
+            simp only [List.cons_append, Matches_deriv] at hn
             exact POSIX.mul rfl hg h₁ h₂ hn
     · intro h
       simp at h
-      split_ifs at h with hr
+      split at h
       · cases h with
         | left h =>
           cases h with
           | mul hs hg h₁ h₂ hn =>
             rw [←ih₁] at h₁
-            simp_rw [←Matches_deriv, ←List.cons_append] at hn
+            simp only [←Matches_deriv, ←List.cons_append] at hn
             rw [←hs, ←List.cons_append]
             exact POSIX.mul rfl hg h₁ h₂ hn
         | right h hr₁ =>
@@ -225,7 +224,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
         | mul hs hg h₁ h₂ hn =>
           subst hs
           rw [←ih₁] at h₁
-          simp_rw [←Matches_deriv, ←List.cons_append] at hn
+          simp only [←Matches_deriv, ←List.cons_append] at hn
           rw [←List.cons_append]
           exact POSIX.mul rfl hg h₁ h₂ hn
   | star r ih =>
@@ -241,7 +240,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
           cases hcs.left
           cases hcs.right
           rw [ih] at h₁
-          simp_rw [List.cons_append, Matches_deriv] at hn
+          simp only [List.cons_append, Matches_deriv] at hn
           exact POSIX.mul rfl hg h₁ h₂ hn
     · intro h
       cases h with
@@ -249,7 +248,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
         subst hs
         rw [←ih] at h₁
         rw [←List.cons_append]
-        simp_rw [←Matches_deriv, ←List.cons_append] at hn
+        simp only [←Matches_deriv, ←List.cons_append] at hn
         exact POSIX.stars rfl hg h₁ h₂ (by simp) hn
   | group n cs r ih =>
     constructor
