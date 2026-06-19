@@ -13,22 +13,16 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
   | emptyset => exact ⟨nofun, nofun⟩
   | epsilon =>
     simp [extract]
-    constructor
-    · intro h
-      subst h
-      exact POSIX.epsilon
-    · intro h
-      cases h
-      rfl
+    constructor <;> (intro h; cases h; constructor)
   | char c => exact ⟨nofun, nofun⟩
   | plus r₁ r₂ ih₁ ih₂ =>
     simp [extract]
     split
-    · rename_i hr₁
-      constructor
+    · constructor
       · intro ⟨hr, h⟩
         exact POSIX.left (ih₁.mp ⟨_, h⟩)
-      · intro h
+      · next hr₁ =>
+        intro h
         cases h with
         | left h =>
           rw [←ih₁] at h
@@ -37,12 +31,12 @@ theorem extract_nil_posix {r : Regex α} {Γ : SubmatchEnv α} :
         | right h hn =>
           rw [nullable_iff_matches_nil] at hr₁
           exact absurd hr₁ hn
-    · rename_i hr₁
+    · next hr₁ =>
       constructor
       · intro ⟨hr, h⟩
-        refine POSIX.right (ih₂.mp ⟨Or.resolve_left hr hr₁, h⟩) ?_
+        apply POSIX.right (ih₂.mp ⟨Or.resolve_left hr hr₁, h⟩)
         rw [nullable_iff_matches_nil] at hr₁
-        exact hr₁
+        assumption
       · intro h
         cases h with
         | left h =>
@@ -110,14 +104,13 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
     constructor
     · intro h
       cases h
-      simp
-      exact POSIX.epsilon
+      simp; constructor
     · intro h
       simp at h
       split at h <;> rename_i hc
       · cases h
         cases hc
-        exact POSIX.char c
+        constructor
       · nomatch h
   | plus r₁ r₂ ih₁ ih₂ =>
     constructor
@@ -155,9 +148,7 @@ theorem posix_deriv {r : Regex α} {c : α} {s : List α} {Γ : SubmatchEnv α} 
             rw [←POSIX_nil_markEmpty] at h₁
             apply POSIX.right
             rw [←List.nil_append s]
-            apply POSIX.mul rfl hg
-            exact h₁
-            exact h₂
+            apply POSIX.mul rfl hg h₁ h₂
             simp
             intro x hx _ _ hr₁
             exact absurd (markEmpty_matches_nil hr₁) hx
@@ -271,8 +262,7 @@ theorem posix_derivs {r : Regex α} {s : List α} {Γ : SubmatchEnv α} :
   induction s generalizing r with
   | nil => rfl
   | cons x xs ih =>
-    rw [posix_deriv, ih]
-    rfl
+    simp only [posix_deriv, derivs, ih]
 
 theorem captures_posix (r : Regex α) (s : List α) (Γ : SubmatchEnv α) :
   r.captures s = some Γ ↔ POSIX s r Γ := by

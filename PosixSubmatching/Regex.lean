@@ -114,7 +114,7 @@ theorem matches_epsilon_iff {s : List α} :
     rfl
   · intro h
     rw [h]
-    exact Matches.epsilon
+    constructor
 
 theorem matches_char_iff {c : α} {s : List α} :
   Matches (char c) s ↔ s = [c] := by
@@ -124,7 +124,7 @@ theorem matches_char_iff {c : α} {s : List α} :
     rfl
   · intro h
     rw [h]
-    exact Matches.char
+    constructor
 
 theorem matches_plus_iff {s : List α} {r₁ r₂ : Regex α} :
   Matches (r₁.plus r₂) s ↔ Matches r₁ s ∨ Matches r₂ s := by
